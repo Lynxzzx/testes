@@ -6,8 +6,10 @@ import { PricingCards } from "@/components/pricing-cards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/current-user";
+import { ACTIVE_STATUSES, getPeriodEnd, getStripe } from "@/lib/stripe";
 import { getUsage } from "@/lib/usage";
 import { formatDate } from "@/lib/utils";
+import { User } from "@/models/User";
 
 export const metadata: Metadata = { title: "Plano e cobrança" };
 
@@ -17,7 +19,37 @@ export default async function PlanPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status } = await searchParams;
-  const user = await getCurrentUser();
+  let user = await getCurrentUser();
+
+  // Sincronização imediata ao retornar do checkout caso o webhook ainda não tenha processado
+  if (status === "sucesso" && user.plan !== "pro" && user.stripeCustomerId && process.env.STRIPE_SECRET_KEY) {
+    try {
+      const subs = await getStripe().subscriptions.list({
+        customer: user.stripeCustomerId,
+        status: "all",
+        limit: 1,
+      });
+      const sub = subs.data[0];
+      if (sub && ACTIVE_STATUSES.includes(sub.status)) {
+        const periodEnd = getPeriodEnd(sub);
+        await User.updateOne(
+          { _id: user._id },
+          {
+            $set: {
+              plan: "pro",
+              stripeSubscriptionId: sub.id,
+              subscriptionStatus: sub.status,
+              currentPeriodEnd: periodEnd,
+            },
+          }
+        );
+        user = { ...user, plan: "pro", currentPeriodEnd: periodEnd };
+      }
+    } catch (err) {
+      console.warn("[plano] falha ao sincronizar assinatura no retorno:", err);
+    }
+  }
+
   const usage = getUsage(user);
   const isPro = usage.plan === "pro";
 

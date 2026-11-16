@@ -5,7 +5,7 @@ import { getStripe } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
 import { User } from "@/models/User";
 
-export async function POST() {
+export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
@@ -15,10 +15,20 @@ export async function POST() {
     return NextResponse.json({ error: "Nenhuma assinatura encontrada." }, { status: 400 });
   }
 
+  const origin = req.headers.get("origin");
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  const returnUrl =
+    origin && origin.startsWith("http")
+      ? `${origin.replace(/\/$/, "")}/dashboard/plano`
+      : host
+        ? `${proto}://${host}/dashboard/plano`
+        : absoluteUrl("/dashboard/plano");
+
   try {
     const portal = await getStripe().billingPortal.sessions.create({
       customer: user.stripeCustomerId,
-      return_url: absoluteUrl("/dashboard/plano"),
+      return_url: returnUrl,
       locale: "pt-BR",
     });
     return NextResponse.json({ url: portal.url });
