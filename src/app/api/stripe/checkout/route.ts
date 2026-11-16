@@ -6,22 +6,57 @@ import { getStripe } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
 import { User } from "@/models/User";
 
+const DEFAULT_LINE_ITEM: Stripe.Checkout.SessionCreateParams.LineItem = {
+  quantity: 1,
+  price_data: {
+    currency: "brl",
+    product_data: {
+      name: "PropostaAI Pro",
+      description: "Propostas comerciais ilimitadas com IA e PDF sem marca d'água",
+    },
+    unit_amount: 3900, // R$ 39,00
+    recurring: { interval: "month" },
+  },
+};
+
 /**
- * Resolve o item de cobrança do Stripe aceitando tanto um Price ID (`price_...`)
- * quanto um Product ID (`prod_...`), ou criando `price_data` recorrente de R$ 39/mês.
+ * Resolve o item de cobrança do Stripe aceitando:
+ * - Price ID (`price_...`) válido e recorrente
+ * - Product ID (`prod_...`) válido
+ * - Ou fallback automático para `product_data` de R$ 39,00/mês caso o ID configurado
+ *   seja inválido ou pertença a outro ambiente (Test vs Live).
  */
 async function resolveLineItem(
   stripe: Stripe,
   configuredId?: string
 ): Promise<Stripe.Checkout.SessionCreateParams.LineItem> {
-  const id = configuredId?.trim() ?? "";
+  const id = (configuredId ?? "").replace(/^['"]+|['"]+$/g, "").trim();
 
   if (id.startsWith("price_")) {
-    return { price: id, quantity: 1 };
+    const price = await stripe.prices.retrieve(id).catch(() => null);
+    if (price && price.active && price.type === "recurring") {
+      return { price: price.id, quantity: 1 };
+    }
+    if (price && typeof price.product === "string") {
+      return {
+        quantity: 1,
+        price_data: {
+          currency: "brl",
+          product: price.product,
+          unit_amount: 3900,
+          recurring: { interval: "month" },
+        },
+      };
+    }
+    return DEFAULT_LINE_ITEM;
   }
 
   if (id.startsWith("prod_")) {
-    // Tenta localizar um preço recorrente ativo já cadastrado nesse produto
+    const product = await stripe.products.retrieve(id).catch(() => null);
+    if (!product || (product as Stripe.DeletedProduct).deleted) {
+      return DEFAULT_LINE_ITEM;
+    }
+
     const prices = await stripe.prices
       .list({ product: id, active: true, type: "recurring", limit: 1 })
       .catch(() => null);
@@ -30,30 +65,18 @@ async function resolveLineItem(
       return { price: prices.data[0].id, quantity: 1 };
     }
 
-    // Se o produto não tiver preço recorrente ou tiver apenas preço avulso, usa price_data
     return {
       quantity: 1,
       price_data: {
         currency: "brl",
-        product: id,
-        unit_amount: 3900, // R$ 39,00
+        product: product.id,
+        unit_amount: 3900,
         recurring: { interval: "month" },
       },
     };
   }
 
-  return {
-    quantity: 1,
-    price_data: {
-      currency: "brl",
-      product_data: {
-        name: "PropostaAI Pro",
-        description: "Propostas comerciais ilimitadas com IA e PDF sem marca d'água",
-      },
-      unit_amount: 3900,
-      recurring: { interval: "month" },
-    },
-  };
+  return DEFAULT_LINE_ITEM;
 }
 
 function getBaseUrl(req: Request): string {
@@ -70,7 +93,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.json({ error: "Pagamentos não configurados." }, { status: 500 });
+    return NextResponse.json({ error: "Pagamentos não configurados (STRIPE_SECRET_KEY ausente)." }, { status: 500 });
   }
 
   try {
@@ -83,6 +106,12 @@ export async function POST(req: Request) {
 
     const stripe = getStripe();
     let customerId = user.stripeCustomerId;
+    if (customerId) {
+      const existing = await stripe.customers.retrieve(customerId).catch(() => null);
+      if (!existing || (existing as Stripe.DeletedCustomer).deleted) {
+        customerId = undefined;
+      }
+    }
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
@@ -92,24 +121,11 @@ export async function POST(req: Request) {
       customerId = customer.id;
       user.stripeCustomerId = customerId;
       await user.save();
-    } else {
-      // Verifica se o customer ainda existe na conta/ambiente Stripe atual (test vs live)
-      const existing = await stripe.customers.retrieve(customerId).catch(() => null);
-      if (!existing || (existing as Stripe.DeletedCustomer).deleted) {
-        const customer = await stripe.customers.create({
-          email: user.email,
-          name: user.name || undefined,
-          metadata: { userId: user._id.toString() },
-        });
-        customerId = customer.id;
-        user.stripeCustomerId = customerId;
-        await user.save();
-      }
     }
 
     const lineItem = await resolveLineItem(stripe, process.env.STRIPE_PRO_PRICE_ID);
-
     const baseUrl = getBaseUrl(req);
+
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -126,7 +142,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: checkout.url });
   } catch (err) {
-    console.error("[stripe/checkout]", err);
-    return NextResponse.json({ error: "Não foi possível iniciar o pagamento." }, { status: 500 });
+    console.error("[stripe/checkout v2]", err);
+    const detail = err instanceof Error ? err.message : "Erro desconhecido";
+    return NextResponse.json(
+      { error: `Não foi possível iniciar o pagamento: ${detail}` },
+      { status: 500 }
+    );
   }
 }
