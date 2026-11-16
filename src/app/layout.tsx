@@ -6,8 +6,19 @@ import "./globals.css";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
+function safeMetadataBase(): URL {
+  const raw =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  try {
+    return new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  metadataBase: safeMetadataBase(),
   title: {
     default: "PropostaAI — Propostas comerciais profissionais em minutos",
     template: "%s · PropostaAI",

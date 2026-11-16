@@ -104,6 +104,11 @@ export async function auth() {
   try {
     return await getServerSession(authOptions);
   } catch (err) {
+    // No Next.js 15, `DYNAMIC_SERVER_USAGE` é uma exceção de controle interna do framework
+    // para marcar a rota como dinâmica durante o build — ela deve ser relançada.
+    if ((err as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") {
+      throw err;
+    }
     console.error("[auth] falha ao obter sessão:", err);
     return null;
   }

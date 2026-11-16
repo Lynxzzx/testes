@@ -12,8 +12,10 @@ import {
 import { SiteHeader } from "@/components/landing/site-header";
 import { auth } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export default async function LandingPage() {
-  const session = await auth().catch(() => null);
+  const session = await auth();
   return (
     <>
       <SiteHeader loggedIn={!!session?.user} />
