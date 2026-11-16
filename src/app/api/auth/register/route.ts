@@ -27,6 +27,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (err) {
     console.error("[register]", err);
-    return NextResponse.json({ error: "Erro ao criar conta. Tente novamente." }, { status: 500 });
+    const msg = err instanceof Error && err.message.includes("MONGODB_URI")
+      ? "Banco de dados não configurado: adicione MONGODB_URI nas Environment Variables da Vercel."
+      : "Erro ao criar conta. Verifique as variáveis de ambiente (MONGODB_URI) na Vercel.";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

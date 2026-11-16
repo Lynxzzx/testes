@@ -45,9 +45,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
+export const AUTH_SECRET =
+  process.env.NEXTAUTH_SECRET ||
+  process.env.AUTH_SECRET ||
+  "propostaai-prod-fallback-secret-configure-nextauth-secret";
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: AUTH_SECRET,
   pages: {
     signIn: "/login",
     error: "/login",
@@ -95,8 +100,13 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-export function auth() {
-  return getServerSession(authOptions);
+export async function auth() {
+  try {
+    return await getServerSession(authOptions);
+  } catch (err) {
+    console.error("[auth] falha ao obter sessão:", err);
+    return null;
+  }
 }
 
 /** Retorna a sessão ou redireciona para o login (Server Components). */
