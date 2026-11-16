@@ -162,37 +162,39 @@ export async function POST(req: Request) {
     const successUrl = `${baseUrl}/dashboard/plano?status=sucesso&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/dashboard/plano?status=cancelado`;
 
-    // Modo Pix (pagamento avulso de 30 dias em BRL — exigido pelo Stripe para liberar Pix)
+    // Modo Pix (pagamento avulso de 30 dias em BRL — vai direto para o Pix no Stripe)
     if (paymentMethod === "pix") {
       const lineItem = await resolveOneTimeLineItem(stripe, process.env.STRIPE_PRO_PRICE_ID);
-      const baseParams: Stripe.Checkout.SessionCreateParams = {
-        mode: "payment",
-        customer: customerId,
-        client_reference_id: user._id.toString(),
-        line_items: [lineItem],
-        locale: "pt-BR",
-        allow_promotion_codes: true,
-        billing_address_collection: "auto",
-        metadata: { userId: user._id.toString(), planType: "pix_30d" },
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-      };
-
       try {
-        // Tenta explicitar Pix + Cartão primeiro
         const checkout = await stripe.checkout.sessions.create({
-          ...baseParams,
-          payment_method_types: ["pix", "card"],
+          mode: "payment",
+          customer: customerId,
+          client_reference_id: user._id.toString(),
+          payment_method_types: ["pix"],
+          payment_method_options: {
+            pix: { expires_after_seconds: 3600 },
+          },
+          line_items: [lineItem],
+          locale: "pt-BR",
+          allow_promotion_codes: true,
+          billing_address_collection: "auto",
+          metadata: { userId: user._id.toString(), planType: "pix_30d" },
+          success_url: successUrl,
+          cancel_url: cancelUrl,
         });
         return NextResponse.json({ url: checkout.url });
       } catch (pixErr) {
-        console.warn(
-          "[stripe/checkout] 'pix' explícito não habilitado na conta Stripe, usando métodos dinâmicos:",
-          (pixErr as Error)?.message
+        console.error("[stripe/checkout pix]", pixErr);
+        const rawMsg = (pixErr as Error)?.message ?? "";
+        return NextResponse.json(
+          {
+            error:
+              "O Pix ainda não está ativo na sua conta Stripe. Acesse dashboard.stripe.com/settings/payment_methods e clique em 'Ativar' ao lado de Pix. (" +
+              rawMsg +
+              ")",
+          },
+          { status: 400 }
         );
-        // Fallback para métodos de pagamento dinâmicos configurados no Dashboard do Stripe
-        const checkout = await stripe.checkout.sessions.create(baseParams);
-        return NextResponse.json({ url: checkout.url });
       }
     }
 
