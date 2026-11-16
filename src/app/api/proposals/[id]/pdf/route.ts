@@ -1,3 +1,4 @@
+import path from "node:path";
 import React from "react";
 import { isValidObjectId } from "mongoose";
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
@@ -8,6 +9,12 @@ import { getPlan } from "@/lib/usage";
 import { slugify } from "@/lib/utils";
 import { Proposal } from "@/models/Proposal";
 import { User } from "@/models/User";
+
+// Referência explícita para o rastreador de arquivos serverless (@vercel/nft)
+const _PDFKIT_FONTS_DIR = path.join(process.cwd(), "node_modules/pdfkit/js/standard-fonts");
+const _PDFKIT_DATA_DIR = path.join(process.cwd(), "node_modules/pdfkit/js/data");
+void _PDFKIT_FONTS_DIR;
+void _PDFKIT_DATA_DIR;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
