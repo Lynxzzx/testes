@@ -1,0 +1,62 @@
+import React from "react";
+import { isValidObjectId } from "mongoose";
+import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
+import { auth } from "@/lib/auth";
+import { connectDB } from "@/lib/db";
+import { ProposalDocument } from "@/lib/pdf/ProposalDocument";
+import { getPlan } from "@/lib/usage";
+import { slugify } from "@/lib/utils";
+import { Proposal } from "@/models/Proposal";
+import { User } from "@/models/User";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return Response.json({ error: "Não autenticado" }, { status: 401 });
+
+  const { id } = await params;
+  if (!isValidObjectId(id)) return Response.json({ error: "ID inválido" }, { status: 400 });
+
+  await connectDB();
+  const [proposal, user] = await Promise.all([
+    Proposal.findOne({ _id: id, user: session.user.id }).lean(),
+    User.findById(session.user.id).lean(),
+  ]);
+  if (!proposal || !user) return Response.json({ error: "Proposta não encontrada" }, { status: 404 });
+  if (!proposal.content?.trim()) {
+    return Response.json({ error: "A proposta ainda não tem conteúdo." }, { status: 409 });
+  }
+
+  const plan = getPlan(user);
+  // Logo atual do usuário tem prioridade (permite trocar a logo depois de gerar)
+  const company = {
+    ...(proposal.company ?? {}),
+    logo: user.company?.logo || proposal.company?.logo || "",
+  };
+
+  try {
+    const element = React.createElement(ProposalDocument, {
+      title: proposal.title,
+      content: proposal.content,
+      company,
+      watermark: plan.watermark,
+    }) as unknown as React.ReactElement<DocumentProps>;
+
+    const buffer = await renderToBuffer(element);
+    const filename = `${slugify(proposal.title) || "proposta"}.pdf`;
+
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (err) {
+    console.error("[pdf]", err);
+    return Response.json({ error: "Falha ao gerar o PDF." }, { status: 500 });
+  }
+}
