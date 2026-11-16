@@ -6,7 +6,7 @@ import { getStripe } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
 import { User } from "@/models/User";
 
-const DEFAULT_LINE_ITEM: Stripe.Checkout.SessionCreateParams.LineItem = {
+const DEFAULT_SUBSCRIPTION_ITEM: Stripe.Checkout.SessionCreateParams.LineItem = {
   quantity: 1,
   price_data: {
     currency: "brl",
@@ -19,14 +19,19 @@ const DEFAULT_LINE_ITEM: Stripe.Checkout.SessionCreateParams.LineItem = {
   },
 };
 
-/**
- * Resolve o item de cobrança do Stripe aceitando:
- * - Price ID (`price_...`) válido e recorrente
- * - Product ID (`prod_...`) válido
- * - Ou fallback automático para `product_data` de R$ 39,00/mês caso o ID configurado
- *   seja inválido ou pertença a outro ambiente (Test vs Live).
- */
-async function resolveLineItem(
+const DEFAULT_PIX_ITEM: Stripe.Checkout.SessionCreateParams.LineItem = {
+  quantity: 1,
+  price_data: {
+    currency: "brl",
+    product_data: {
+      name: "PropostaAI Pro — 30 dias (Pix / Cartão)",
+      description: "30 dias de acesso ao Plano Pro: propostas ilimitadas e PDF sem marca d'água",
+    },
+    unit_amount: 3900, // R$ 39,00
+  },
+};
+
+async function resolveSubscriptionLineItem(
   stripe: Stripe,
   configuredId?: string
 ): Promise<Stripe.Checkout.SessionCreateParams.LineItem> {
@@ -48,13 +53,13 @@ async function resolveLineItem(
         },
       };
     }
-    return DEFAULT_LINE_ITEM;
+    return DEFAULT_SUBSCRIPTION_ITEM;
   }
 
   if (id.startsWith("prod_")) {
     const product = await stripe.products.retrieve(id).catch(() => null);
     if (!product || !product.active) {
-      return DEFAULT_LINE_ITEM;
+      return DEFAULT_SUBSCRIPTION_ITEM;
     }
 
     const prices = await stripe.prices
@@ -76,7 +81,30 @@ async function resolveLineItem(
     };
   }
 
-  return DEFAULT_LINE_ITEM;
+  return DEFAULT_SUBSCRIPTION_ITEM;
+}
+
+async function resolveOneTimeLineItem(
+  stripe: Stripe,
+  configuredId?: string
+): Promise<Stripe.Checkout.SessionCreateParams.LineItem> {
+  const id = (configuredId ?? "").replace(/^['"]+|['"]+$/g, "").trim();
+
+  if (id.startsWith("prod_")) {
+    const product = await stripe.products.retrieve(id).catch(() => null);
+    if (product && product.active) {
+      return {
+        quantity: 1,
+        price_data: {
+          currency: "brl",
+          product: product.id,
+          unit_amount: 3900,
+        },
+      };
+    }
+  }
+
+  return DEFAULT_PIX_ITEM;
 }
 
 function getBaseUrl(req: Request): string {
@@ -93,8 +121,15 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.json({ error: "Pagamentos não configurados (STRIPE_SECRET_KEY ausente)." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Pagamentos não configurados (STRIPE_SECRET_KEY ausente)." },
+      { status: 500 }
+    );
   }
+
+  const body = await req.json().catch(() => ({}));
+  const paymentMethod: "pix" | "subscription" =
+    body?.paymentMethod === "pix" ? "pix" : "subscription";
 
   try {
     await connectDB();
@@ -123,9 +158,46 @@ export async function POST(req: Request) {
       await user.save();
     }
 
-    const lineItem = await resolveLineItem(stripe, process.env.STRIPE_PRO_PRICE_ID);
     const baseUrl = getBaseUrl(req);
+    const successUrl = `${baseUrl}/dashboard/plano?status=sucesso&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrl}/dashboard/plano?status=cancelado`;
 
+    // Modo Pix (pagamento avulso de 30 dias em BRL — exigido pelo Stripe para liberar Pix)
+    if (paymentMethod === "pix") {
+      const lineItem = await resolveOneTimeLineItem(stripe, process.env.STRIPE_PRO_PRICE_ID);
+      const baseParams: Stripe.Checkout.SessionCreateParams = {
+        mode: "payment",
+        customer: customerId,
+        client_reference_id: user._id.toString(),
+        line_items: [lineItem],
+        locale: "pt-BR",
+        allow_promotion_codes: true,
+        billing_address_collection: "auto",
+        metadata: { userId: user._id.toString(), planType: "pix_30d" },
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      };
+
+      try {
+        // Tenta explicitar Pix + Cartão primeiro
+        const checkout = await stripe.checkout.sessions.create({
+          ...baseParams,
+          payment_method_types: ["pix", "card"],
+        });
+        return NextResponse.json({ url: checkout.url });
+      } catch (pixErr) {
+        console.warn(
+          "[stripe/checkout] 'pix' explícito não habilitado na conta Stripe, usando métodos dinâmicos:",
+          (pixErr as Error)?.message
+        );
+        // Fallback para métodos de pagamento dinâmicos configurados no Dashboard do Stripe
+        const checkout = await stripe.checkout.sessions.create(baseParams);
+        return NextResponse.json({ url: checkout.url });
+      }
+    }
+
+    // Modo Assinatura Mensal (Cartão)
+    const lineItem = await resolveSubscriptionLineItem(stripe, process.env.STRIPE_PRO_PRICE_ID);
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -136,13 +208,13 @@ export async function POST(req: Request) {
       billing_address_collection: "auto",
       subscription_data: { metadata: { userId: user._id.toString() } },
       metadata: { userId: user._id.toString() },
-      success_url: `${baseUrl}/dashboard/plano?status=sucesso`,
-      cancel_url: `${baseUrl}/dashboard/plano?status=cancelado`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
     });
 
     return NextResponse.json({ url: checkout.url });
   } catch (err) {
-    console.error("[stripe/checkout v2]", err);
+    console.error("[stripe/checkout v3]", err);
     const detail = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json(
       { error: `Não foi possível iniciar o pagamento: ${detail}` },

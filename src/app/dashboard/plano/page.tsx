@@ -16,37 +16,63 @@ export const metadata: Metadata = { title: "Plano e cobrança" };
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; session_id?: string }>;
 }) {
-  const { status } = await searchParams;
+  const { status, session_id } = await searchParams;
   let user = await getCurrentUser();
 
-  // Sincronização imediata ao retornar do checkout caso o webhook ainda não tenha processado
-  if (status === "sucesso" && user.plan !== "pro" && user.stripeCustomerId && process.env.STRIPE_SECRET_KEY) {
+  // Sincronização imediata ao retornar do checkout (Pix avulso ou Assinatura no Cartão)
+  if (status === "sucesso" && user.plan !== "pro" && process.env.STRIPE_SECRET_KEY) {
     try {
-      const subs = await getStripe().subscriptions.list({
-        customer: user.stripeCustomerId,
-        status: "all",
-        limit: 1,
-      });
-      const sub = subs.data[0];
-      if (sub && ACTIVE_STATUSES.includes(sub.status)) {
-        const periodEnd = getPeriodEnd(sub);
-        await User.updateOne(
-          { _id: user._id },
-          {
-            $set: {
-              plan: "pro",
-              stripeSubscriptionId: sub.id,
-              subscriptionStatus: sub.status,
-              currentPeriodEnd: periodEnd,
-            },
-          }
-        );
-        user = { ...user, plan: "pro", currentPeriodEnd: periodEnd };
+      const stripe = getStripe();
+      if (session_id) {
+        const checkoutSession = await stripe.checkout.sessions.retrieve(session_id);
+        const ownerId =
+          checkoutSession.metadata?.userId || checkoutSession.client_reference_id;
+        if (
+          ownerId === user._id.toString() &&
+          checkoutSession.payment_status === "paid"
+        ) {
+          const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          await User.updateOne(
+            { _id: user._id },
+            {
+              $set: {
+                plan: "pro",
+                subscriptionStatus: "active",
+                currentPeriodEnd: periodEnd,
+              },
+            }
+          );
+          user = { ...user, plan: "pro", currentPeriodEnd: periodEnd };
+        }
+      }
+
+      if (user.plan !== "pro" && user.stripeCustomerId) {
+        const subs = await stripe.subscriptions.list({
+          customer: user.stripeCustomerId,
+          status: "all",
+          limit: 1,
+        });
+        const sub = subs.data[0];
+        if (sub && ACTIVE_STATUSES.includes(sub.status)) {
+          const periodEnd = getPeriodEnd(sub);
+          await User.updateOne(
+            { _id: user._id },
+            {
+              $set: {
+                plan: "pro",
+                stripeSubscriptionId: sub.id,
+                subscriptionStatus: sub.status,
+                currentPeriodEnd: periodEnd,
+              },
+            }
+          );
+          user = { ...user, plan: "pro", currentPeriodEnd: periodEnd };
+        }
       }
     } catch (err) {
-      console.warn("[plano] falha ao sincronizar assinatura no retorno:", err);
+      console.warn("[plano] falha ao sincronizar pagamento no retorno:", err);
     }
   }
 
@@ -63,7 +89,7 @@ export default async function PlanPage({
       {status === "sucesso" && (
         <div className="mt-6 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800">
           <CheckCircle2 className="size-4 shrink-0" />
-          Assinatura confirmada! Seu plano Pro já está ativo.
+          Pagamento confirmado! Seu plano Pro já está ativo.
         </div>
       )}
       {status === "cancelado" && (
@@ -87,11 +113,11 @@ export default async function PlanPage({
           </p>
           {isPro && user.currentPeriodEnd && (
             <p className="mt-1 text-xs text-muted-foreground">
-              Próxima renovação em {formatDate(user.currentPeriodEnd)}
+              Válido até {formatDate(user.currentPeriodEnd)}
             </p>
           )}
         </div>
-        {isPro && user.stripeCustomerId ? (
+        {isPro && user.stripeSubscriptionId && user.stripeCustomerId ? (
           <div className="sm:w-64">
             <PortalButton />
           </div>
@@ -108,11 +134,11 @@ export default async function PlanPage({
           }
           proCta={
             isPro ? (
-              user.stripeCustomerId ? (
+              user.stripeSubscriptionId && user.stripeCustomerId ? (
                 <PortalButton />
               ) : (
                 <Button variant="brand" size="lg" className="w-full" disabled>
-                  Plano ativo
+                  Plano Pro ativo
                 </Button>
               )
             ) : (

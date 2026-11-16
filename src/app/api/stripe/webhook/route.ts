@@ -24,6 +24,26 @@ async function syncSubscription(sub: Stripe.Subscription) {
   });
 }
 
+async function activateOneTimePro(session: Stripe.Checkout.Session) {
+  if (session.payment_status !== "paid") return;
+  const userId = session.metadata?.userId || session.client_reference_id;
+  const customerId =
+    typeof session.customer === "string" ? session.customer : session.customer?.id;
+  if (!userId && !customerId) return;
+
+  await connectDB();
+  const filter = userId ? { _id: userId } : { stripeCustomerId: customerId };
+  const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  await User.updateOne(filter, {
+    $set: {
+      plan: "pro",
+      ...(customerId ? { stripeCustomerId: customerId } : {}),
+      subscriptionStatus: "active",
+      currentPeriodEnd: periodEnd,
+    },
+  });
+}
+
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -41,15 +61,21 @@ export async function POST(req: Request) {
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.mode === "subscription" && session.subscription) {
-          const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
+          const subId =
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription.id;
           const sub = await stripe.subscriptions.retrieve(subId);
           if (!sub.metadata?.userId && session.client_reference_id) {
             sub.metadata = { ...sub.metadata, userId: session.client_reference_id };
           }
           await syncSubscription(sub);
+        } else if (session.mode === "payment") {
+          await activateOneTimePro(session);
         }
         break;
       }

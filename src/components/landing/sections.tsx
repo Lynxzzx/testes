@@ -215,7 +215,7 @@ export function Faq() {
     },
     {
       q: "Quais formas de pagamento são aceitas?",
-      a: "Cartão de crédito via Stripe, com cobrança recorrente em reais (R$).",
+      a: "Pix (acesso de 30 dias ao Pro) e cartão de crédito (assinatura mensal) via Stripe, em reais (R$).",
     },
   ];
   return (
