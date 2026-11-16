@@ -53,7 +53,7 @@ async function resolveLineItem(
 
   if (id.startsWith("prod_")) {
     const product = await stripe.products.retrieve(id).catch(() => null);
-    if (!product || (product as Stripe.DeletedProduct).deleted) {
+    if (!product || !product.active) {
       return DEFAULT_LINE_ITEM;
     }
 
