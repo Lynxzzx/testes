@@ -2,6 +2,17 @@ import React from "react";
 import { Document, Font, Image, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { marked, type Token, type Tokens } from "marked";
 import { sanitizeProposalMarkdown } from "@/lib/ai/prompts";
+import { extractChartFromMarkedTable, formatBrl } from "@/lib/proposal-charts";
+
+const CHART_PALETTE = [
+  "#4f46e5",
+  "#7c3aed",
+  "#0284c7",
+  "#0d9488",
+  "#d97706",
+  "#e11d48",
+  "#475569",
+];
 
 // Desativa a hifenização automática em inglês do @react-pdf/renderer para nunca
 // remover ou quebrar hífens em palavras compostas (E-commerce, e-mail, Semanas 3-4).
@@ -457,45 +468,224 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React
       const t = tok as Tokens.Table;
       const weights = columnWeights(t);
       const allowTableWrap = t.rows.length > 10;
+      const { investment, timeline } = extractChartFromMarkedTable(t);
 
       return (
-        <View key={key} style={s.table} wrap={allowTableWrap}>
-          <View style={s.theadRow} wrap={false} fixed={allowTableWrap}>
-            {t.header.map((cell, c) => (
-              <Text
-                key={c}
-                style={[
-                  s.th,
-                  { flex: weights[c] },
-                  t.align[c] === "right" ? { textAlign: "right" } : {},
-                  t.align[c] === "center" ? { textAlign: "center" } : {},
-                ]}
-              >
-                {renderInline(cell.tokens, `${key}-h${c}`)}
-              </Text>
-            ))}
+        <View key={key}>
+          <View style={s.table} wrap={allowTableWrap}>
+            <View style={s.theadRow} wrap={false} fixed={allowTableWrap}>
+              {t.header.map((cell, c) => (
+                <Text
+                  key={c}
+                  style={[
+                    s.th,
+                    { flex: weights[c] },
+                    t.align[c] === "right" ? { textAlign: "right" } : {},
+                    t.align[c] === "center" ? { textAlign: "center" } : {},
+                  ]}
+                >
+                  {renderInline(cell.tokens, `${key}-h${c}`)}
+                </Text>
+              ))}
+            </View>
+            {t.rows.map((row, r) => {
+              const isLast = r === t.rows.length - 1;
+              const rowStyle = isLast ? s.trLast : r % 2 === 1 ? s.trEven : s.tr;
+              return (
+                <View key={r} style={rowStyle} wrap={false}>
+                  {row.map((cell, c) => (
+                    <Text
+                      key={c}
+                      style={[
+                        s.td,
+                        { flex: weights[c] },
+                        t.align[c] === "right" ? { textAlign: "right" } : {},
+                        t.align[c] === "center" ? { textAlign: "center" } : {},
+                      ]}
+                    >
+                      {renderInline(cell.tokens, `${key}-${r}-${c}`)}
+                    </Text>
+                  ))}
+                </View>
+              );
+            })}
           </View>
-          {t.rows.map((row, r) => {
-            const isLast = r === t.rows.length - 1;
-            const rowStyle = isLast ? s.trLast : r % 2 === 1 ? s.trEven : s.tr;
-            return (
-              <View key={r} style={rowStyle} wrap={false}>
-                {row.map((cell, c) => (
-                  <Text
-                    key={c}
-                    style={[
-                      s.td,
-                      { flex: weights[c] },
-                      t.align[c] === "right" ? { textAlign: "right" } : {},
-                      t.align[c] === "center" ? { textAlign: "center" } : {},
-                    ]}
-                  >
-                    {renderInline(cell.tokens, `${key}-${r}-${c}`)}
-                  </Text>
+
+          {/* Gráfico visual automático de distribuição do investimento */}
+          {investment ? (
+            <View
+              wrap={false}
+              style={{
+                borderWidth: 1,
+                borderColor: BORDER,
+                backgroundColor: SOFT,
+                borderRadius: 4,
+                padding: 10,
+                marginBottom: 10,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 6,
+                }}
+              >
+                <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 8.5, color: INK }}>
+                  DISTRIBUIÇÃO PROPORCIONAL DO INVESTIMENTO
+                </Text>
+                <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 8.5, color: ACCENT }}>
+                  Total: {sanitize(formatBrl(investment.total))}
+                </Text>
+              </View>
+
+              {/* Barra empilhada 100% */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  height: 7,
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  backgroundColor: "#e2e8f0",
+                  marginBottom: 8,
+                }}
+              >
+                {investment.items.map((item, idx) => (
+                  <View
+                    key={idx}
+                    style={{
+                      flex: Math.max(item.percentage, 3),
+                      backgroundColor: CHART_PALETTE[idx % CHART_PALETTE.length],
+                    }}
+                  />
                 ))}
               </View>
-            );
-          })}
+
+              {investment.items.map((item, idx) => {
+                const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+                return (
+                  <View key={idx} style={{ marginBottom: 4 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        marginBottom: 2,
+                      }}
+                    >
+                      <Text style={{ fontSize: 8.5, color: INK }}>
+                        • {sanitize(item.label)}
+                      </Text>
+                      <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 8.5, color: INK }}>
+                        {sanitize(item.formatted)} ({item.percentage}%)
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        height: 4,
+                        backgroundColor: "#e2e8f0",
+                        borderRadius: 2,
+                        flexDirection: "row",
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: `${Math.max(item.percentage, 2)}%`,
+                          backgroundColor: color,
+                          borderRadius: 2,
+                        }}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+
+          {/* Gráfico Gantt visual do Cronograma */}
+          {timeline ? (
+            <View
+              wrap={false}
+              style={{
+                borderWidth: 1,
+                borderColor: BORDER,
+                backgroundColor: SOFT,
+                borderRadius: 4,
+                padding: 10,
+                marginBottom: 10,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 6,
+                }}
+              >
+                <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 8.5, color: INK }}>
+                  MAPA VISUAL DO CRONOGRAMA ({sanitize(timeline.unitName.toUpperCase())})
+                </Text>
+                <Text style={{ fontSize: 8, color: MUTED }}>
+                  Horizonte total: {timeline.maxUnit} {sanitize(timeline.unitName.toLowerCase())}
+                </Text>
+              </View>
+
+              {timeline.items.map((item, idx) => {
+                const leftPct = Math.min(((item.startUnit - 1) / timeline.maxUnit) * 100, 92);
+                const widthPct = Math.max(
+                  ((item.endUnit - item.startUnit + 1) / timeline.maxUnit) * 100,
+                  8
+                );
+                const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+                return (
+                  <View
+                    key={idx}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 4,
+                    }}
+                  >
+                    <Text style={{ width: "38%", fontSize: 8, color: INK, paddingRight: 6 }}>
+                      {sanitize(item.label)}
+                    </Text>
+                    <View
+                      style={{
+                        width: "44%",
+                        height: 6,
+                        backgroundColor: "#e2e8f0",
+                        borderRadius: 3,
+                        position: "relative",
+                      }}
+                    >
+                      <View
+                        style={{
+                          position: "absolute",
+                          left: `${leftPct}%`,
+                          width: `${Math.min(widthPct, 100 - leftPct)}%`,
+                          top: 0,
+                          bottom: 0,
+                          backgroundColor: color,
+                          borderRadius: 3,
+                        }}
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        width: "18%",
+                        fontSize: 8,
+                        color: MUTED,
+                        textAlign: "right",
+                      }}
+                    >
+                      {sanitize(item.periodLabel)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
         </View>
       );
     }

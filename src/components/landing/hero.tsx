@@ -126,6 +126,29 @@ function HeroDemo() {
                 <span>R$ 17.700</span>
               </div>
             </div>
+            {/* Mini gráfico visual de distribuição na demonstração */}
+            <div className="mt-3 rounded-lg border bg-muted/30 p-2.5">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Distribuição do orçamento</span>
+                <span className="font-mono font-medium text-foreground">100%</span>
+              </div>
+              <div className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-muted">
+                <div className="bg-brand" style={{ width: "65%" }} />
+                <div className="bg-violet-500" style={{ width: "21%" }} />
+                <div className="bg-sky-500" style={{ width: "14%" }} />
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-xs bg-brand" /> Site 65%
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-xs bg-violet-500" /> WhatsApp 21%
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-xs bg-sky-500" /> SEO 14%
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

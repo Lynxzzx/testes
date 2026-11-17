@@ -82,6 +82,115 @@ export function HowItWorks() {
             </div>
           ))}
         </div>
+
+        {/* Gráficos de Impacto Comercial logo abaixo do texto explicativo */}
+        <div className="mt-12 grid gap-6 lg:grid-cols-2">
+          {/* Gráfico 1: Tempo gasto por proposta */}
+          <div className="rounded-2xl border bg-background p-6 shadow-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  Eficiência operacional
+                </p>
+                <h3 className="mt-1 text-lg font-semibold">
+                  Tempo médio para montar 1 proposta
+                </h3>
+              </div>
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                -98% de tempo
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Comparativo real entre redigir do zero no Word/Docs e gerar na PropostaAI.
+            </p>
+
+            <div className="mt-6 space-y-5">
+              <div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-muted-foreground">
+                    Processo manual (Word + formatação + tabelas)
+                  </span>
+                  <span className="font-mono font-semibold text-foreground">~3h 40min</span>
+                </div>
+                <div className="mt-2 flex h-3 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="bg-slate-400" style={{ width: "45%" }} title="Escrita do texto" />
+                  <div className="bg-slate-500" style={{ width: "30%" }} title="Montagem de tabelas" />
+                  <div className="bg-slate-600" style={{ width: "25%" }} title="Ajuste de layout PDF" />
+                </div>
+                <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
+                  <span>Escrita (1h40)</span>
+                  <span>Escopo e preços (1h)</span>
+                  <span>Formatação PDF (1h)</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-brand">Com PropostaAI (Brief → PDF pronto)</span>
+                  <span className="font-mono font-semibold text-brand">2 min</span>
+                </div>
+                <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-brand/10">
+                  <div className="h-full rounded-full bg-gradient-to-r from-brand to-violet-500" style={{ width: "6%" }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Gráfico 2: Taxa de fechamento vs Velocidade de envio */}
+          <div className="rounded-2xl border bg-background p-6 shadow-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  Impacto na conversão
+                </p>
+                <h3 className="mt-1 text-lg font-semibold">
+                  Taxa de fechamento por tempo de envio
+                </h3>
+              </div>
+              <span className="rounded-full bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand">
+                2,4x mais vendas
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Enviar a proposta ainda com a reunião fresca na memória do cliente multiplica a chance de aceite.
+            </p>
+
+            <div className="mt-6 grid grid-cols-4 items-end gap-3 pt-4" style={{ height: 148 }}>
+              {[
+                { label: "Em até 1h", sub: "Com PropostaAI", value: 68, highlight: true },
+                { label: "Mesmo dia", sub: "Até 8h depois", value: 49, highlight: false },
+                { label: "24h a 48h", sub: "Média do mercado", value: 28, highlight: false },
+                { label: "+3 dias", sub: "Lead esfriou", value: 14, highlight: false },
+              ].map((bar) => (
+                <div key={bar.label} className="flex h-full flex-col items-center justify-end gap-1.5">
+                  <span
+                    className={`font-mono text-xs font-semibold ${
+                      bar.highlight ? "text-brand" : "text-muted-foreground"
+                    }`}
+                  >
+                    {bar.value}%
+                  </span>
+                  <div className="flex w-full flex-1 items-end">
+                    <div
+                      className={`w-full rounded-t-lg transition-all ${
+                        bar.highlight
+                          ? "bg-gradient-to-t from-brand to-violet-500 shadow-sm"
+                          : "bg-slate-200"
+                      }`}
+                      style={{ height: `${bar.value}%` }}
+                    />
+                  </div>
+                  <span className="text-center text-[11px] font-medium leading-tight">
+                    {bar.label}
+                  </span>
+                  <span className="text-center text-[10px] text-muted-foreground">
+                    {bar.sub}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -95,6 +204,12 @@ const examples = [
     sections: ["Diagnóstico", "Estratégia de mídia", "KPIs", "Investimento mensal"],
     excerpt:
       "Nos próximos 90 dias, nosso objetivo é reduzir o CAC em 25% e elevar o ROAS para 4x, reestruturando as campanhas de Meta Ads e Google Shopping...",
+    chartTitle: "Meta de evolução de ROAS (90 dias)",
+    chartBars: [
+      { label: "Mês 1", pct: 45, value: "2.2x" },
+      { label: "Mês 2", pct: 72, value: "3.1x" },
+      { label: "Mês 3", pct: 100, value: "4.0x" },
+    ],
   },
   {
     tag: "Consultoria",
@@ -103,6 +218,12 @@ const examples = [
     sections: ["Contexto regulatório", "Metodologia", "Cronograma", "Condições comerciais"],
     excerpt:
       "A presente proposta tem por objeto a adequação das 6 unidades à Lei nº 13.709/2018, contemplando mapeamento de dados, políticas internas e treinamento...",
+    chartTitle: "Distribuição das etapas (8 semanas)",
+    chartBars: [
+      { label: "Mapeamento", pct: 30, value: "2 sem" },
+      { label: "Adequação jurídica", pct: 50, value: "4 sem" },
+      { label: "Treinamento", pct: 20, value: "2 sem" },
+    ],
   },
   {
     tag: "Software house",
@@ -111,6 +232,12 @@ const examples = [
     sections: ["Entendimento do desafio", "Escopo do MVP", "Roadmap", "Investimento"],
     excerpt:
       "Entendemos que o maior desafio hoje é a dependência dos marketplaces e suas taxas de até 27%. Por isso, recomendamos começar por um MVP enxuto...",
+    chartTitle: "Alocação do orçamento do MVP",
+    chartBars: [
+      { label: "App Mobile & Web", pct: 55, value: "55%" },
+      { label: "Painel + Pagamentos", pct: 30, value: "30%" },
+      { label: "QA & Publicação", pct: 15, value: "15%" },
+    ],
   },
 ];
 
@@ -121,7 +248,7 @@ export function Examples() {
         <SectionHeading
           eyebrow="Exemplos"
           title="Propostas que parecem escritas pelo seu melhor vendedor"
-          description="Estruturadas, personalizadas e no tom certo para cada cliente."
+          description="Estruturadas, personalizadas, com gráficos automáticos de cronograma e investimento."
         />
         <div className="mt-14 grid gap-6 lg:grid-cols-3">
           {examples.map((e) => (
@@ -136,7 +263,24 @@ export function Examples() {
               <div className="mt-5 h-1 w-8 rounded-full bg-brand" />
               <h3 className="mt-3 font-semibold leading-snug">{e.title}</h3>
               <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">{e.excerpt}</p>
-              <div className="mt-5 flex flex-wrap gap-1.5 border-t pt-4">
+
+              {/* Mini gráfico visual do exemplo */}
+              <div className="mt-4 rounded-xl border bg-muted/30 p-3">
+                <p className="text-[11px] font-medium text-muted-foreground">{e.chartTitle}</p>
+                <div className="mt-2 space-y-1.5">
+                  {e.chartBars.map((b) => (
+                    <div key={b.label} className="grid grid-cols-[110px_1fr_42px] items-center gap-2 text-[11px]">
+                      <span className="truncate text-foreground/80">{b.label}</span>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-brand" style={{ width: `${b.pct}%` }} />
+                      </div>
+                      <span className="text-right font-mono font-medium">{b.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-1.5 border-t pt-4">
                 {e.sections.map((s) => (
                   <span key={s} className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">
                     {s}

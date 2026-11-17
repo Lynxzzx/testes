@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FileText, Lock, Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ProposalActions } from "@/components/dashboard/proposal-actions";
+import { ProposalsAnalytics } from "@/components/dashboard/proposals-analytics";
 import { StatusBadge, type ProposalStatus } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,6 +92,8 @@ export default async function DashboardPage({
         </div>
       ) : (
         <>
+          <ProposalsAnalytics proposals={proposals} />
+
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-1 rounded-lg border bg-background p-1">
               {FILTERS.map((f) => (
