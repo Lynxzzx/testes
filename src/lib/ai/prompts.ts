@@ -55,6 +55,25 @@ REGRAS DE PRECIFICAÇÃO E ORÇAMENTO
 9. Não inclua seção de assinatura nem bloco de contatos no final — o cabeçalho e o rodapé institucionais do PDF já exibem essas informações.
 10. Tamanho alvo: entre 650 e 1.400 palavras, proporcional à complexidade do projeto.`;
 
+export const FAST_CLOSE_WINDOWS: Record<
+  "24h" | "48h" | "3d" | "5d" | "7d",
+  { label: string; hours: number }
+> = {
+  "24h": { label: "24 horas", hours: 24 },
+  "48h": { label: "48 horas", hours: 48 },
+  "3d": { label: "3 dias", hours: 72 },
+  "5d": { label: "5 dias", hours: 120 },
+  "7d": { label: "7 dias", hours: 168 },
+};
+
+export function computeFastCloseDeadline(
+  windowKey: "24h" | "48h" | "3d" | "5d" | "7d" = "48h",
+  baseDate = new Date()
+): Date {
+  const hours = FAST_CLOSE_WINDOWS[windowKey]?.hours ?? 48;
+  return new Date(baseDate.getTime() + hours * 3600_000);
+}
+
 export function buildProposalMessages(input: {
   title: string;
   clientName?: string;
@@ -63,6 +82,9 @@ export function buildProposalMessages(input: {
   sections: SectionKey[];
   company: CompanyInput;
   suggestMarketPricing?: boolean;
+  fastCloseEnabled?: boolean;
+  fastCloseWindow?: "24h" | "48h" | "3d" | "5d" | "7d";
+  fastCloseBonus?: string;
 }): ChatMessage[] {
   const today = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(new Date());
   const sectionList = (input.sections.length ? input.sections : (Object.keys(SECTIONS) as SectionKey[]))
@@ -70,6 +92,13 @@ export function buildProposalMessages(input: {
     .join("\n");
 
   const c = input.company;
+  const fastCloseWindowKey = input.fastCloseWindow ?? "48h";
+  const fastCloseWindowLabel = FAST_CLOSE_WINDOWS[fastCloseWindowKey]?.label ?? "48 horas";
+  const fastCloseDeadlineStr = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(computeFastCloseDeadline(fastCloseWindowKey));
   const companyLines = [
     c.name && `Nome da empresa prestadora: ${c.name}`,
     c.cnpj && `CNPJ: ${c.cnpj}`,
@@ -110,6 +139,16 @@ LEMBRETES CRÍTICOS ANTES DE REDIGIR:
 ${
   input.suggestMarketPricing
     ? `- SUGESTÃO INTELIGENTE DE PREÇO DE MERCADO ATIVADA: Caso o briefing NÃO mencione um valor ou orçamento fechado, estime uma faixa de preço justa e realista praticada no mercado brasileiro B2B para o porte e escopo descritos (em R$ X.XXX,00), distribua os valores proporcionalmente entre cada etapa na tabela de Investimento somando o **Total** (NÃO use "A definir") e aplique **ancoragem de preço** antes da tabela (contextualizando o retorno sobre o investimento e o custo de não resolver o problema antes de mostrar o preço).`
+    : ""
+}
+${
+  input.fastCloseEnabled
+    ? `- CLÁUSULA DE URGÊNCIA / BÔNUS POR FECHAMENTO RÁPIDO ATIVADA: Inclua obrigatoriamente na seção "Condições comerciais" (ou logo após a tabela de "Investimento") um bloco de destaque em formato de citação Markdown iniciando com "> " exatamente neste padrão:
+> **Condição Especial para Fechamento em ${fastCloseWindowLabel} (válida até ${fastCloseDeadlineStr}):** ${
+        input.fastCloseBonus?.trim()
+          ? `Caso a aprovação desta proposta ocorra dentro de ${fastCloseWindowLabel} (até ${fastCloseDeadlineStr}), garantimos como benefício exclusivo: **${input.fastCloseBonus.trim()}**.`
+          : `Crie uma oferta/bônus estratégico de alto valor percebido e baixo custo marginal coerente com o projeto para fechamento em até ${fastCloseWindowLabel} (até ${fastCloseDeadlineStr}), como desconto no pagamento à vista via Pix ou um entregável bônus complementar.`
+      }`
     : ""
 }
 - NÃO use LaTeX, NÃO use $...$ para matemática ou métricas e NÃO use \\$ com barra invertida.

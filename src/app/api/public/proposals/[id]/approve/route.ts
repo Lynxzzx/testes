@@ -5,9 +5,28 @@ import { connectDB } from "@/lib/db";
 import { Proposal } from "@/models/Proposal";
 
 const approveSchema = z.object({
-  name: z.string().trim().max(120).optional().default(""),
+  signerName: z.string().trim().min(3, "Informe o nome completo").max(120),
+  signerDocument: z.string().trim().min(11, "Informe o CPF ou CNPJ").max(25),
+  signatureImage: z
+    .string()
+    .max(350_000, "Imagem da assinatura muito grande")
+    .refine(
+      (v) => /^data:image\/png;base64,/.test(v),
+      "Assinatura inválida"
+    ),
   email: z.string().trim().max(160).optional().default(""),
 });
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const realIp = req.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  return "IP verificado";
+}
 
 export async function POST(
   req: Request,
@@ -19,8 +38,15 @@ export async function POST(
   }
 
   const parsed = approveSchema.safeParse(await req.json().catch(() => ({})));
-  const name = parsed.success ? parsed.data.name : "";
-  const email = parsed.success ? parsed.data.email : "";
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Dados de assinatura inválidos" },
+      { status: 400 }
+    );
+  }
+
+  const { signerName, signerDocument, signatureImage, email } = parsed.data;
+  const signerIp = getClientIp(req);
 
   await connectDB();
   const proposal = await Proposal.findById(id);
@@ -31,14 +57,24 @@ export async function POST(
   const now = new Date();
   proposal.status = "approved";
   proposal.approvedAt = now;
-  if (name) proposal.approvedByName = name;
+  proposal.approvedByName = signerName;
   if (email) proposal.approvedByEmail = email;
+
+  proposal.signerName = signerName;
+  proposal.signerDocument = signerDocument;
+  proposal.signatureImage = signatureImage;
+  proposal.signedAt = now;
+  proposal.signerIp = signerIp;
+
   await proposal.save();
 
   return NextResponse.json({
     ok: true,
     status: "approved",
-    approvedAt: now.toISOString(),
-    approvedByName: proposal.approvedByName,
+    signerName,
+    signerDocument,
+    signatureImage,
+    signedAt: now.toISOString(),
+    signerIp,
   });
 }

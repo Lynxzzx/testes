@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, ChevronDown, Loader2, Lock, Sparkles, Square, Wand2 } from "lucide-react";
+import { Building2, ChevronDown, Clock, Gift, Loader2, Lock, Sparkles, Square, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { CompanyFields } from "@/components/company-fields";
 import { Markdown } from "@/components/markdown";
@@ -48,6 +48,26 @@ const DEMO_EXAMPLES = [
   },
 ];
 
+const FAST_CLOSE_OPTIONS: {
+  value: "24h" | "48h" | "3d" | "5d" | "7d";
+  label: string;
+  hours: number;
+}[] = [
+  { value: "24h", label: "24 horas", hours: 24 },
+  { value: "48h", label: "48 horas", hours: 48 },
+  { value: "3d", label: "3 dias", hours: 72 },
+  { value: "5d", label: "5 dias", hours: 120 },
+  { value: "7d", label: "7 dias", hours: 168 },
+];
+
+const BONUS_SUGGESTIONS = [
+  "7% de desconto para pagamento à vista no Pix + Kickoff prioritário em 24h",
+  "Configuração completa do Google Meu Negócio + GA4 sem custo adicional",
+  "30 dias extras de suporte pós-lançamento e acompanhamento de métricas",
+  "Sessão bônus de treinamento gravado para toda a equipe do cliente",
+  "Isenção da taxa de setup + 5% de desconto na primeira parcela",
+];
+
 type Phase = "form" | "streaming";
 
 export function NewProposalForm({
@@ -69,6 +89,35 @@ export function NewProposalForm({
   const [editCompany, setEditCompany] = useState(!defaultCompany.name);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [suggestMarketPricing, setSuggestMarketPricing] = useState(true);
+  const [fastCloseEnabled, setFastCloseEnabled] = useState(false);
+  const [fastCloseWindow, setFastCloseWindow] = useState<"24h" | "48h" | "3d" | "5d" | "7d">("48h");
+  const [fastCloseBonus, setFastCloseBonus] = useState("");
+  const [bonusIdx, setBonusIdx] = useState(0);
+
+  const selectedWindowObj =
+    FAST_CLOSE_OPTIONS.find((o) => o.value === fastCloseWindow) ?? FAST_CLOSE_OPTIONS[1];
+  const calculatedDeadline = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(Date.now() + selectedWindowObj.hours * 3600_000));
+
+  function suggestBonus() {
+    const lower = `${title} ${brief}`.toLowerCase();
+    if (/site|landing|seo|google|clínica|clinica/i.test(lower) && bonusIdx === 0) {
+      setFastCloseBonus(
+        "Configuração gratuita do Google Meu Negócio + 5% de desconto para pagamento no Pix"
+      );
+    } else if (/e-commerce|ecommerce|loja|portal|sistema|app|erp|bling/i.test(lower) && bonusIdx === 0) {
+      setFastCloseBonus(
+        "30 dias extras de suporte prioritário pós-go-live + treinamento gravado da equipe"
+      );
+    } else {
+      setFastCloseBonus(BONUS_SUGGESTIONS[bonusIdx % BONUS_SUGGESTIONS.length]);
+    }
+    setBonusIdx((i) => i + 1);
+    toast.success("Sugestão de bônus aplicada!");
+  }
 
   const [phase, setPhase] = useState<Phase>("form");
   const [exampleIdx, setExampleIdx] = useState(0);
@@ -119,10 +168,16 @@ export function NewProposalForm({
           clientName,
           brief,
           tone,
-          sections,
+          sections:
+            fastCloseEnabled && !sections.includes("termos")
+              ? [...sections, "termos"]
+              : sections,
           company,
           saveAsDefault,
           suggestMarketPricing,
+          fastCloseEnabled,
+          fastCloseWindow,
+          fastCloseBonus,
         }),
         signal: controller.signal,
       });
@@ -285,6 +340,88 @@ export function NewProposalForm({
                 </p>
               </div>
             </label>
+
+            {/* Cláusula de Urgência / Bônus por Fechamento Rápido */}
+            <div className="mt-2 rounded-lg border bg-muted/20 p-3.5">
+              <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                <Checkbox
+                  checked={fastCloseEnabled}
+                  onCheckedChange={(v) => {
+                    const enabled = v === true;
+                    setFastCloseEnabled(enabled);
+                    if (enabled && !sections.includes("termos")) {
+                      setSections((prev) => [...prev, "termos"]);
+                    }
+                  }}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Gift className="size-3.5 text-brand" />
+                    Adicionar condição especial / bônus por fechamento rápido
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    Cria um box de destaque nas Condições Comerciais com prazo limite e incentivo exclusivo para acelerar o aceite.
+                  </p>
+                </div>
+              </label>
+
+              {fastCloseEnabled && (
+                <div className="mt-4 space-y-4 border-t pt-4">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-xs">1. Prazo de validade da condição</Label>
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-brand">
+                        <Clock className="size-3" />
+                        Data limite calculada: {calculatedDeadline}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {FAST_CLOSE_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setFastCloseWindow(opt.value)}
+                          className={cn(
+                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-all",
+                            fastCloseWindow === opt.value
+                              ? "border-brand bg-brand text-white shadow-2xs"
+                              : "bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label htmlFor="fast-bonus" className="text-xs">
+                        2. Condição ou bônus oferecido (opcional)
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={suggestBonus}
+                        className="h-6 px-2 text-xs font-medium text-brand hover:bg-brand/10 hover:text-brand"
+                      >
+                        <Sparkles className="size-3" />
+                        Sugerir bônus com IA
+                      </Button>
+                    </div>
+                    <Input
+                      id="fast-bonus"
+                      value={fastCloseBonus}
+                      onChange={(e) => setFastCloseBonus(e.target.value)}
+                      placeholder="Ex.: 5% de desconto no Pix ou Configuração gratuita do Google Meu Negócio (em branco = IA sugere)"
+                      className="bg-background"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>

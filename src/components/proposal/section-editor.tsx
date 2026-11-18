@@ -295,7 +295,7 @@ export function SectionEditor({
               {investmentTable && !isEditing ? (
                 <div className="space-y-5">
                   {investmentTable.beforeTable && (
-                    <Markdown content={investmentTable.beforeTable} />
+                    <Markdown content={investmentTable.beforeTable} brandColor={brandColor} />
                   )}
 
                   <div className="rounded-xl border bg-muted/20 p-4">
@@ -437,7 +437,7 @@ export function SectionEditor({
                   </div>
 
                   {investmentTable.afterTable && (
-                    <Markdown content={investmentTable.afterTable} />
+                    <Markdown content={investmentTable.afterTable} brandColor={brandColor} />
                   )}
                 </div>
               ) : isEditing ? (
@@ -453,7 +453,7 @@ export function SectionEditor({
                   className="cursor-pointer rounded-lg transition-colors hover:bg-muted/20"
                   title="Clique para editar esta seção"
                 >
-                  <Markdown content={section.body} />
+                  <Markdown content={section.body} brandColor={brandColor} />
                 </div>
               )}
             </div>

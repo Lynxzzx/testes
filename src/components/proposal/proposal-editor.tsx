@@ -541,7 +541,11 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
                 style={{ backgroundColor: brandColor }}
               />
               {content ? (
-                <Markdown content={content} streaming={status === "generating"} />
+                <Markdown
+                  content={content}
+                  streaming={status === "generating"}
+                  brandColor={brandColor}
+                />
               ) : (
                 <p className="py-12 text-center text-sm text-muted-foreground">
                   {status === "generating" ? "Gerando proposta…" : "Nenhum conteúdo disponível."}

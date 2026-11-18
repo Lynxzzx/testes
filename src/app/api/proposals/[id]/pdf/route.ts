@@ -51,6 +51,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       content: proposal.content,
       company,
       watermark: plan.watermark,
+      signature:
+        proposal.status === "approved" || proposal.status === "final" || proposal.signerName
+          ? {
+              signerName: proposal.signerName || proposal.approvedByName || "",
+              signerDocument: proposal.signerDocument || "",
+              signatureImage: proposal.signatureImage || "",
+              signedAt: proposal.signedAt || proposal.approvedAt || null,
+              signerIp: proposal.signerIp || "",
+            }
+          : null,
     }) as unknown as React.ReactElement<DocumentProps>;
 
     const buffer = await renderToBuffer(element);

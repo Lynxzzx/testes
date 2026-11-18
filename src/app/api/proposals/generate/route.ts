@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { AIError, streamChatWithFallback } from "@/lib/ai/openrouter";
-import { buildProposalMessages, cleanModelOutput } from "@/lib/ai/prompts";
+import {
+  buildProposalMessages,
+  cleanModelOutput,
+  computeFastCloseDeadline,
+} from "@/lib/ai/prompts";
 import { consumeCredit, refundCredit } from "@/lib/usage";
 import { generateSchema } from "@/lib/validations";
 import { Proposal } from "@/models/Proposal";
@@ -53,6 +57,12 @@ export async function POST(req: Request) {
     tone: input.tone,
     sections: input.sections,
     suggestMarketPricing: input.suggestMarketPricing ?? false,
+    fastCloseEnabled: input.fastCloseEnabled ?? false,
+    fastCloseWindow: input.fastCloseEnabled ? input.fastCloseWindow : "",
+    fastCloseDeadline: input.fastCloseEnabled
+      ? computeFastCloseDeadline(input.fastCloseWindow)
+      : undefined,
+    fastCloseBonus: input.fastCloseEnabled ? input.fastCloseBonus : "",
     company: {
       ...input.company,
       logo: user.company?.logo ?? "",

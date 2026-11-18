@@ -73,10 +73,12 @@ export function Markdown({
   content,
   className,
   streaming,
+  brandColor = "#4f46e5",
 }: {
   content: string;
   className?: string;
   streaming?: boolean;
+  brandColor?: string;
 }) {
   const cleaned = sanitizeProposalMarkdown(content);
 
@@ -85,6 +87,19 @@ export function Markdown({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          blockquote({ children }) {
+            return (
+              <div
+                className="not-prose my-5 rounded-xl border border-l-4 bg-slate-50/90 p-4 text-sm leading-relaxed text-slate-800 shadow-2xs"
+                style={{
+                  borderColor: `${brandColor}40`,
+                  borderLeftColor: brandColor,
+                }}
+              >
+                {children}
+              </div>
+            );
+          },
           table({ node, children, ...props }) {
             const { headers, rows } = parseHastTable(node as unknown as HastNode);
             const investment = !streaming ? extractInvestmentChart(headers, rows) : null;

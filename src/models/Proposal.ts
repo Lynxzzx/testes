@@ -10,6 +10,12 @@ const ProposalSchema = new Schema(
     sections: { type: [String], default: [] },
     suggestMarketPricing: { type: Boolean, default: false },
 
+    // Condição especial / bônus por fechamento rápido
+    fastCloseEnabled: { type: Boolean, default: false },
+    fastCloseWindow: { type: String, default: "" },
+    fastCloseDeadline: { type: Date },
+    fastCloseBonus: { type: String, default: "" },
+
     // Snapshot dos dados da empresa no momento da geração
     company: {
       name: String,
@@ -34,12 +40,17 @@ const ProposalSchema = new Schema(
     aiModel: { type: String, default: "" },
     error: { type: String, default: "" },
 
-    // Rastreamento do link público interativo (/p/[id])
+    // Rastreamento do link público interativo (/p/[id]) e Assinatura Digital
     viewCount: { type: Number, default: 0 },
     lastViewedAt: { type: Date },
     approvedAt: { type: Date },
     approvedByName: { type: String, default: "" },
     approvedByEmail: { type: String, default: "" },
+    signerName: { type: String, default: "" },
+    signerDocument: { type: String, default: "" },
+    signatureImage: { type: String, default: "" },
+    signedAt: { type: Date },
+    signerIp: { type: String, default: "" },
   },
   { timestamps: true }
 );

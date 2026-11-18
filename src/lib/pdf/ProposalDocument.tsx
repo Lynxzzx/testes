@@ -152,13 +152,16 @@ const s = StyleSheet.create({
   },
   listContent: { flex: 1 },
   blockquote: {
-    borderLeftWidth: 3,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderLeftWidth: 4,
     borderLeftColor: ACCENT,
     backgroundColor: SOFT,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginVertical: 6,
-    color: "#334155",
+    borderRadius: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginVertical: 8,
+    color: "#1e293b",
   },
   code: {
     fontFamily: "Courier",
@@ -233,6 +236,14 @@ export type PdfCompany = {
   address?: string | null;
   logo?: string | null;
   brandColor?: string | null;
+};
+
+export type PdfSignature = {
+  signerName?: string | null;
+  signerDocument?: string | null;
+  signatureImage?: string | null;
+  signedAt?: Date | string | null;
+  signerIp?: string | null;
 };
 
 /**
@@ -460,7 +471,11 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false, accent
     case "blockquote": {
       const b = tok as Tokens.Blockquote;
       return (
-        <View key={key} style={[s.blockquote, { borderLeftColor: accent }]} wrap={false}>
+        <View
+          key={key}
+          style={[s.blockquote, { borderColor: accent, borderLeftColor: accent }]}
+          wrap={false}
+        >
           {b.tokens.map((t, i) => renderBlock(t, `${key}-${i}`, depth + 1, false, accent))}
         </View>
       );
@@ -774,11 +789,13 @@ export function ProposalDocument({
   content,
   company,
   watermark,
+  signature,
 }: {
   title: string;
   content: string;
   company: PdfCompany;
   watermark: boolean;
+  signature?: PdfSignature | null;
 }) {
   const accent =
     company.brandColor && /^#[0-9a-fA-F]{6}$/.test(company.brandColor)
@@ -789,6 +806,20 @@ export function ProposalDocument({
   const firstContentIdx = tokens.findIndex((t) => t.type !== "space");
 
   const contactLine = [company.email, company.phone, company.website].filter(Boolean).join("  ·  ");
+  const hasSignature = Boolean(signature?.signerName || signature?.signatureImage);
+  const signedDateStr = signature?.signedAt
+    ? new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(
+        typeof signature.signedAt === "string"
+          ? new Date(signature.signedAt)
+          : signature.signedAt
+      )
+    : "";
 
   return (
     <Document
@@ -829,6 +860,130 @@ export function ProposalDocument({
         ) : null}
 
         {renderTokensWithKeepTogether(tokens, firstContentIdx, accent)}
+
+        {/* Certificado de Aceite e Assinatura Digital (exibido no final do PDF quando aprovada) */}
+        {hasSignature ? (
+          <View
+            wrap={false}
+            style={{
+              marginTop: 22,
+              borderWidth: 1.5,
+              borderColor: accent,
+              backgroundColor: SOFT,
+              borderRadius: 6,
+              padding: 14,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottomWidth: 1,
+                borderBottomColor: BORDER,
+                paddingBottom: 8,
+                marginBottom: 10,
+              }}
+            >
+              <View>
+                <Text
+                  style={{
+                    fontFamily: "Helvetica-Bold",
+                    fontSize: 10,
+                    color: accent,
+                  }}
+                >
+                  CERTIFICADO DE ACEITE E ASSINATURA DIGITAL
+                </Text>
+                <Text style={{ fontSize: 8, color: MUTED, marginTop: 1 }}>
+                  Documento aprovado eletronicamente com registro de autoria e auditoria
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontFamily: "Helvetica-Bold",
+                  fontSize: 8.5,
+                  color: "#047857",
+                }}
+              >
+                STATUS: APROVADA
+              </Text>
+            </View>
+
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 16,
+              }}
+            >
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ fontSize: 8.5, color: INK }}>
+                  <Text style={s.bold}>Signatário: </Text>
+                  {sanitize(signature?.signerName || "Cliente")}
+                </Text>
+                {signature?.signerDocument ? (
+                  <Text style={{ fontSize: 8.5, color: INK }}>
+                    <Text style={s.bold}>CPF / CNPJ: </Text>
+                    {sanitize(signature.signerDocument)}
+                  </Text>
+                ) : null}
+                {signedDateStr ? (
+                  <Text style={{ fontSize: 8.5, color: INK }}>
+                    <Text style={s.bold}>Data e hora do aceite: </Text>
+                    {sanitize(signedDateStr)}
+                  </Text>
+                ) : null}
+                {signature?.signerIp ? (
+                  <Text style={{ fontSize: 8.5, color: INK }}>
+                    <Text style={s.bold}>IP de registro: </Text>
+                    {sanitize(signature.signerIp)}
+                  </Text>
+                ) : null}
+              </View>
+
+              {signature?.signatureImage ? (
+                <View
+                  style={{
+                    width: 170,
+                    alignItems: "center",
+                    backgroundColor: "#ffffff",
+                    borderWidth: 1,
+                    borderColor: BORDER,
+                    borderRadius: 4,
+                    padding: 8,
+                  }}
+                >
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image
+                    src={signature.signatureImage}
+                    style={{ maxHeight: 48, maxWidth: 150, objectFit: "contain" }}
+                  />
+                  <View
+                    style={{
+                      marginTop: 4,
+                      paddingTop: 3,
+                      borderTopWidth: 1,
+                      borderTopColor: BORDER,
+                      width: "100%",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 7,
+                        color: MUTED,
+                        textAlign: "center",
+                      }}
+                    >
+                      Assinatura Digital do Aprovador
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
 
         {/* Rodapé fixo com contatos e paginação */}
         <View style={s.footer} fixed>

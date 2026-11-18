@@ -39,6 +39,12 @@ export const generateSchema = z.object({
   company: companySchema,
   saveAsDefault: z.boolean().optional().default(false),
   suggestMarketPricing: z.boolean().optional().default(false),
+  fastCloseEnabled: z.boolean().optional().default(false),
+  fastCloseWindow: z
+    .enum(["24h", "48h", "3d", "5d", "7d"])
+    .optional()
+    .default("48h"),
+  fastCloseBonus: z.string().trim().max(300).optional().default(""),
 });
 
 export const updateProposalSchema = z.object({

@@ -71,6 +71,11 @@ export default async function PublicProposalPage({
         createdAt: proposal.createdAt.toISOString(),
         approvedAt: proposal.approvedAt ? proposal.approvedAt.toISOString() : null,
         approvedByName: proposal.approvedByName ?? "",
+        signerName: proposal.signerName ?? "",
+        signerDocument: proposal.signerDocument ?? "",
+        signatureImage: proposal.signatureImage ?? "",
+        signedAt: proposal.signedAt ? proposal.signedAt.toISOString() : null,
+        signerIp: proposal.signerIp ?? "",
         watermark: plan.watermark,
         company: {
           name: proposal.company?.name || owner?.company?.name || "",
