@@ -423,7 +423,6 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
           items={initial.riskRadar}
           brief={initial.brief}
           content={content}
-          disabled={status === "generating"}
           onInsertClause={(nextMd) => {
             setContent(nextMd);
             setDirty(true);
