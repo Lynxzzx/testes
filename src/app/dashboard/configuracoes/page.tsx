@@ -14,13 +14,14 @@ export default async function SettingsPage() {
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
       <PageHeader
         title="Configurações"
-        description="Configure os dados padrão da sua empresa, logo e preferências de escrita."
+        description="Configure o logotipo, cor da sua marca, dados padrão da empresa e preferências de escrita."
       />
       <SettingsForm
         initialName={user.name || ""}
         email={user.email}
         initialCompany={toCompanyValues(user.company)}
         initialLogo={user.company?.logo ?? ""}
+        initialBrandColor={user.company?.brandColor || "#4f46e5"}
         initialTone={(user.preferences?.tone as Tone) ?? "consultivo"}
       />
     </div>

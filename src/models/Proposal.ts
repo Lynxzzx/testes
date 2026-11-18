@@ -21,12 +21,13 @@ const ProposalSchema = new Schema(
       about: String,
       differentials: String,
       logo: String,
+      brandColor: String,
     },
 
     content: { type: String, default: "" }, // Markdown
     status: {
       type: String,
-      enum: ["generating", "draft", "final", "error"],
+      enum: ["generating", "draft", "sent", "approved", "rejected", "final", "error"],
       default: "generating",
     },
     aiModel: { type: String, default: "" },

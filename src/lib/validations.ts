@@ -44,7 +44,7 @@ export const updateProposalSchema = z.object({
   title: z.string().trim().min(3).max(160).optional(),
   clientName: z.string().trim().max(160).optional(),
   content: z.string().max(100_000).optional(),
-  status: z.enum(["draft", "final"]).optional(),
+  status: z.enum(["draft", "sent", "approved", "rejected", "final"]).optional(),
 });
 
 export const registerSchema = z.object({
@@ -60,6 +60,10 @@ export const updateUserSchema = z.object({
     .string()
     .max(450_000, "Logo muito grande (máx. ~300KB)")
     .refine((v) => v === "" || /^data:image\/(png|jpe?g);base64,/.test(v), "Formato de logo inválido (use PNG ou JPG)")
+    .optional(),
+  brandColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Cor inválida (use formato hexadecimal #RRGGBB)")
     .optional(),
   tone: toneSchema.optional(),
   onboarded: z.boolean().optional(),

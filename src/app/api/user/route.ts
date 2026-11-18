@@ -31,13 +31,14 @@ export async function PATCH(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
   }
-  const { name, company, logo, tone, onboarded } = parsed.data;
+  const { name, company, logo, brandColor, tone, onboarded } = parsed.data;
 
   const set: Record<string, unknown> = {};
   if (name !== undefined) set.name = name;
   if (tone !== undefined) set["preferences.tone"] = tone;
   if (onboarded !== undefined) set.onboarded = onboarded;
   if (logo !== undefined) set["company.logo"] = logo;
+  if (brandColor !== undefined) set["company.brandColor"] = brandColor;
   if (company) {
     for (const [key, value] of Object.entries(company)) {
       if (value !== undefined) set[`company.${key}`] = value;

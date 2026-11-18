@@ -38,10 +38,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const plan = getPlan(user);
-  // Logo atual do usuário tem prioridade (permite trocar a logo depois de gerar)
+  // Logo e cor da marca atuais do usuário têm prioridade (permite personalizar após gerar)
   const company = {
     ...(proposal.company ?? {}),
     logo: user.company?.logo || proposal.company?.logo || "",
+    brandColor: user.company?.brandColor || proposal.company?.brandColor || "#4f46e5",
   };
 
   try {

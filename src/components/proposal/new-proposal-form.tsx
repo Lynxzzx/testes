@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, ChevronDown, Loader2, Lock, Sparkles, Square } from "lucide-react";
+import { Building2, ChevronDown, Loader2, Lock, Sparkles, Square, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { CompanyFields } from "@/components/company-fields";
 import { Markdown } from "@/components/markdown";
@@ -23,6 +23,29 @@ const BRIEF_PLACEHOLDER = `Ex.: Reunião com a Rede Sorriso (4 clínicas odontol
 - SEO local para as 4 unidades
 - Orçamento até R$ 18 mil, lançamento em 2 meses
 - Decisor: Dr. Paulo (sócio), quer ver cases da área da saúde`;
+
+const DEMO_EXAMPLES = [
+  {
+    title: "Novo Site Institucional e Agendamento Online — Rede Sorriso",
+    clientName: "Rede Sorriso Odontologia",
+    brief: `Reunião realizada com o Dr. Paulo (sócio-diretor da Rede Sorriso, rede com 4 clínicas odontológicas em Curitiba/PR).
+- Problema atual: o site antigo em WordPress é lento, não converte no celular e não ranqueia nas buscas locais do Google. Hoje dependem 100% de indicações e anúncios caros.
+- Objetivo: criar um novo site institucional moderno e rápido, com páginas específicas por especialidade (Implantes, Ortodontia, Estética) e por unidade, integrado a agendamento online direto no WhatsApp da recepção de cada clínica.
+- Escopo desejado: UX/UI Design responsivo, desenvolvimento em Next.js de alta performance, configuração de Google Meu Negócio + SEO local para as 4 unidades, rastreamento de conversões (GA4 + Meta Pixel) e treinamento da recepção.
+- Prazo esperado: lançamento em até 6 semanas.
+- Orçamento disponível: teto de R$ 18.000,00 (com possibilidade de manutenção mensal de R$ 600,00/mês).`,
+  },
+  {
+    title: "Plataforma E-commerce B2B e Catálogo Digital — Serra Alta",
+    clientName: "Torrefação Serra Alta Cafés Especiais",
+    brief: `Cliente: Torrefação Serra Alta (fornecedora de cafés especiais para 280 cafeterias e empórios no Sudeste).
+- Dor principal: 100% dos pedidos B2B chegam por WhatsApp e planilhas, tomando 3 horas por dia da equipe comercial e gerando erros de estoque.
+- O que precisam: portal B2B fechado com login por CNPJ, tabela de preços diferenciada por faixa de volume (10 kg, 30 kg e +50 kg), botão "Repetir último pedido" em 1 clique e catálogo público institucional.
+- Integrações obrigatórias: ERP Bling (sincronização de estoque e emissão de pedido/NF), cálculo de frete via Melhor Envio e pagamento via Pix (5% de desconto) ou boleto faturado (15/30 dias).
+- Prazo: 8 semanas (antes da feira anual do setor).
+- Orçamento: até R$ 26.000,00.`,
+  },
+];
 
 type Phase = "form" | "streaming";
 
@@ -46,6 +69,16 @@ export function NewProposalForm({
   const [saveAsDefault, setSaveAsDefault] = useState(false);
 
   const [phase, setPhase] = useState<Phase>("form");
+  const [exampleIdx, setExampleIdx] = useState(0);
+
+  function fillWithExample() {
+    const ex = DEMO_EXAMPLES[exampleIdx % DEMO_EXAMPLES.length];
+    setTitle(ex.title);
+    setClientName(ex.clientName);
+    setBrief(ex.brief);
+    setExampleIdx((i) => i + 1);
+    toast.success("Campos preenchidos com um exemplo realista!");
+  }
   const [output, setOutput] = useState("");
   const [model, setModel] = useState("");
   const [limitReached, setLimitReached] = useState(!usage.canGenerate);
@@ -195,11 +228,23 @@ export function NewProposalForm({
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <div className="flex items-end justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor="brief">Brief do cliente *</Label>
-              <span className={cn("text-xs text-muted-foreground", brief.length > 15000 && "text-destructive")}>
-                {brief.length.toLocaleString("pt-BR")} / 15.000
-              </span>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={fillWithExample}
+                  className="h-7 px-2 text-xs font-medium text-brand hover:bg-brand/10 hover:text-brand"
+                >
+                  <Wand2 className="size-3.5" />
+                  Preencher com exemplo
+                </Button>
+                <span className={cn("text-xs text-muted-foreground", brief.length > 15000 && "text-destructive")}>
+                  {brief.length.toLocaleString("pt-BR")} / 15.000
+                </span>
+              </div>
             </div>
             <Textarea
               id="brief"

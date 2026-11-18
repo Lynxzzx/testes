@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
+import { SupportWidget } from "@/components/dashboard/support-widget";
 import { UsageMeter } from "@/components/dashboard/usage-meter";
 import { UserMenu } from "@/components/dashboard/user-menu";
 import { getCurrentUser } from "@/lib/current-user";
@@ -38,7 +39,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </header>
 
-      <main className="min-w-0">{children}</main>
+      <main className="min-w-0 pb-14">{children}</main>
+      <SupportWidget userEmail={user.email} />
     </div>
   );
 }

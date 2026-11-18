@@ -232,6 +232,7 @@ export type PdfCompany = {
   website?: string | null;
   address?: string | null;
   logo?: string | null;
+  brandColor?: string | null;
 };
 
 /**
@@ -269,7 +270,8 @@ type Style = (typeof s)[keyof typeof s];
 function renderInline(
   tokens: Token[] | undefined,
   keyPrefix = "i",
-  inherited: { bold?: boolean; italic?: boolean } = {}
+  inherited: { bold?: boolean; italic?: boolean } = {},
+  accent = ACCENT
 ): React.ReactNode[] {
   if (!tokens) return [];
   return tokens.map((tok, idx) => {
@@ -287,13 +289,13 @@ function renderInline(
       case "strong":
         return (
           <Text key={key} style={inherited.italic ? s.boldItalic : s.bold}>
-            {renderInline((tok as Tokens.Strong).tokens, key, { ...inherited, bold: true })}
+            {renderInline((tok as Tokens.Strong).tokens, key, { ...inherited, bold: true }, accent)}
           </Text>
         );
       case "em":
         return (
           <Text key={key} style={inherited.bold ? s.boldItalic : s.italic}>
-            {renderInline((tok as Tokens.Em).tokens, key, { ...inherited, italic: true })}
+            {renderInline((tok as Tokens.Em).tokens, key, { ...inherited, italic: true }, accent)}
           </Text>
         );
       case "codespan":
@@ -305,8 +307,8 @@ function renderInline(
       case "link": {
         const l = tok as Tokens.Link;
         return (
-          <Link key={key} src={l.href} style={s.link}>
-            {renderInline(l.tokens, key, inherited)}
+          <Link key={key} src={l.href} style={[s.link, { color: accent }]}>
+            {renderInline(l.tokens, key, inherited, accent)}
           </Link>
         );
       }
@@ -315,7 +317,7 @@ function renderInline(
       case "del":
         return (
           <Text key={key} style={{ textDecoration: "line-through" }}>
-            {renderInline((tok as Tokens.Del).tokens, key, inherited)}
+            {renderInline((tok as Tokens.Del).tokens, key, inherited, accent)}
           </Text>
         );
       case "text": {
@@ -323,7 +325,7 @@ function renderInline(
         if (t.tokens?.length) {
           return (
             <Text key={key} style={style}>
-              {renderInline(t.tokens, key, inherited)}
+              {renderInline(t.tokens, key, inherited, accent)}
             </Text>
           );
         }
@@ -360,7 +362,7 @@ function hasVisibleText(tokens: Token[]): boolean {
   return false;
 }
 
-function renderList(list: Tokens.List, key: string, depth = 0): React.ReactNode {
+function renderList(list: Tokens.List, key: string, depth = 0, accent = ACCENT): React.ReactNode {
   const start = typeof list.start === "number" ? list.start : 1;
   let visibleIndex = 0;
 
@@ -382,7 +384,7 @@ function renderList(list: Tokens.List, key: string, depth = 0): React.ReactNode 
           <View key={`${key}-${i}`}>
             {showBulletRow && (
               <View style={s.listItem} wrap={false}>
-                <Text style={depth === 0 ? s.bullet : s.subBullet}>{marker}</Text>
+                <Text style={depth === 0 ? [s.bullet, { color: accent }] : s.subBullet}>{marker}</Text>
                 <View style={s.listContent}>
                   {inlineChildren.map((child, j) => {
                     const ck = `${key}-${i}-${j}`;
@@ -390,16 +392,16 @@ function renderList(list: Tokens.List, key: string, depth = 0): React.ReactNode 
                       const t = child as Tokens.Text | Tokens.Paragraph;
                       return (
                         <Text key={ck}>
-                          {t.tokens ? renderInline(t.tokens, ck) : sanitize(t.text)}
+                          {t.tokens ? renderInline(t.tokens, ck, {}, accent) : sanitize(t.text)}
                         </Text>
                       );
                     }
-                    return renderBlock(child, ck, depth + 1);
+                    return renderBlock(child, ck, depth + 1, false, accent);
                   })}
                 </View>
               </View>
             )}
-            {nestedLists.map((sub, sIdx) => renderList(sub, `${key}-${i}-sub-${sIdx}`, depth + 1))}
+            {nestedLists.map((sub, sIdx) => renderList(sub, `${key}-${i}-sub-${sIdx}`, depth + 1, accent))}
           </View>
         );
       })}
@@ -407,27 +409,34 @@ function renderList(list: Tokens.List, key: string, depth = 0): React.ReactNode 
   );
 }
 
-function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React.ReactNode {
+function renderBlock(tok: Token, key: string, depth = 0, isFirst = false, accent = ACCENT): React.ReactNode {
+  const palette = [accent, ...CHART_PALETTE.filter((c) => c.toLowerCase() !== accent.toLowerCase())];
+
   switch (tok.type) {
     case "heading": {
       const h = tok as Tokens.Heading;
-      const children = renderInline(h.tokens, key);
+      const children = renderInline(h.tokens, key, {}, accent);
       if (h.depth === 1)
         return (
           <View key={key} wrap={false} minPresenceAhead={120}>
-            {isFirst && <View style={s.accentBar} />}
+            {isFirst && <View style={[s.accentBar, { backgroundColor: accent }]} />}
             <Text style={s.h1}>{children}</Text>
           </View>
         );
       if (h.depth === 2)
         return (
-          <Text key={key} style={s.h2} minPresenceAhead={140} wrap={false}>
+          <Text
+            key={key}
+            style={[s.h2, { borderBottomColor: accent, borderBottomWidth: 1.5 }]}
+            minPresenceAhead={140}
+            wrap={false}
+          >
             {children}
           </Text>
         );
       if (h.depth === 3)
         return (
-          <Text key={key} style={s.h3} minPresenceAhead={90} wrap={false}>
+          <Text key={key} style={[s.h3, { color: accent }]} minPresenceAhead={90} wrap={false}>
             {children}
           </Text>
         );
@@ -442,17 +451,17 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React
       const isSubtitle = p.tokens.length === 1 && p.tokens[0].type === "em";
       return (
         <Text key={key} style={isSubtitle ? s.subtitle : s.p}>
-          {renderInline(p.tokens, key)}
+          {renderInline(p.tokens, key, {}, accent)}
         </Text>
       );
     }
     case "list":
-      return renderList(tok as Tokens.List, key, depth);
+      return renderList(tok as Tokens.List, key, depth, accent);
     case "blockquote": {
       const b = tok as Tokens.Blockquote;
       return (
-        <View key={key} style={s.blockquote} wrap={false}>
-          {b.tokens.map((t, i) => renderBlock(t, `${key}-${i}`, depth + 1))}
+        <View key={key} style={[s.blockquote, { borderLeftColor: accent }]} wrap={false}>
+          {b.tokens.map((t, i) => renderBlock(t, `${key}-${i}`, depth + 1, false, accent))}
         </View>
       );
     }
@@ -472,19 +481,23 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React
 
       return (
         <View key={key}>
-          <View style={s.table} wrap={allowTableWrap}>
-            <View style={s.theadRow} wrap={false} fixed={allowTableWrap}>
+          <View style={[s.table, { borderColor: BORDER }]} wrap={allowTableWrap}>
+            <View
+              style={[s.theadRow, { borderBottomColor: accent, borderBottomWidth: 1.5 }]}
+              wrap={false}
+              fixed={allowTableWrap}
+            >
               {t.header.map((cell, c) => (
                 <Text
                   key={c}
                   style={[
                     s.th,
-                    { flex: weights[c] },
+                    { flex: weights[c], color: accent },
                     t.align[c] === "right" ? { textAlign: "right" } : {},
                     t.align[c] === "center" ? { textAlign: "center" } : {},
                   ]}
                 >
-                  {renderInline(cell.tokens, `${key}-h${c}`)}
+                  {renderInline(cell.tokens, `${key}-h${c}`, {}, accent)}
                 </Text>
               ))}
             </View>
@@ -503,7 +516,7 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React
                         t.align[c] === "center" ? { textAlign: "center" } : {},
                       ]}
                     >
-                      {renderInline(cell.tokens, `${key}-${r}-${c}`)}
+                      {renderInline(cell.tokens, `${key}-${r}-${c}`, {}, accent)}
                     </Text>
                   ))}
                 </View>
@@ -535,7 +548,7 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React
                 <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 8.5, color: INK }}>
                   DISTRIBUIÇÃO PROPORCIONAL DO INVESTIMENTO
                 </Text>
-                <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 8.5, color: ACCENT }}>
+                <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 8.5, color: accent }}>
                   Total: {sanitize(formatBrl(investment.total))}
                 </Text>
               </View>
@@ -556,14 +569,14 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React
                     key={idx}
                     style={{
                       flex: Math.max(item.percentage, 3),
-                      backgroundColor: CHART_PALETTE[idx % CHART_PALETTE.length],
+                      backgroundColor: palette[idx % palette.length],
                     }}
                   />
                 ))}
               </View>
 
               {investment.items.map((item, idx) => {
-                const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+                const color = palette[idx % palette.length];
                 return (
                   <View key={idx} style={{ marginBottom: 4 }}>
                     <View
@@ -637,7 +650,7 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React
                   ((item.endUnit - item.startUnit + 1) / timeline.maxUnit) * 100,
                   8
                 );
-                const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+                const color = palette[idx % palette.length];
                 return (
                   <View
                     key={idx}
@@ -709,7 +722,11 @@ function renderBlock(tok: Token, key: string, depth = 0, isFirst = false): React
  * `break-after: avoid; page-break-after: avoid;` — nunca deixando títulos como "Cronograma"
  * ou "Investimento" sozinhos no fim de uma página.
  */
-function renderTokensWithKeepTogether(tokens: Token[], firstContentIdx: number): React.ReactNode[] {
+function renderTokensWithKeepTogether(
+  tokens: Token[],
+  firstContentIdx: number,
+  accent: string
+): React.ReactNode[] {
   const elements: React.ReactNode[] = [];
   let i = 0;
 
@@ -721,7 +738,6 @@ function renderTokensWithKeepTogether(tokens: Token[], firstContentIdx: number):
     }
 
     if (tok.type === "heading") {
-      // Procura o próximo token não-vazio
       let nextIdx = i + 1;
       while (nextIdx < tokens.length && tokens[nextIdx].type === "space") {
         nextIdx++;
@@ -737,8 +753,8 @@ function renderTokensWithKeepTogether(tokens: Token[], firstContentIdx: number):
       if (canGroupWithNext) {
         elements.push(
           <View key={`keep-${i}`} wrap={false}>
-            {renderBlock(tok, `b-${i}`, 0, i === firstContentIdx)}
-            {renderBlock(nextTok, `b-${nextIdx}`, 0, false)}
+            {renderBlock(tok, `b-${i}`, 0, i === firstContentIdx, accent)}
+            {renderBlock(nextTok, `b-${nextIdx}`, 0, false, accent)}
           </View>
         );
         i = nextIdx + 1;
@@ -746,7 +762,7 @@ function renderTokensWithKeepTogether(tokens: Token[], firstContentIdx: number):
       }
     }
 
-    elements.push(renderBlock(tok, `b-${i}`, 0, i === firstContentIdx));
+    elements.push(renderBlock(tok, `b-${i}`, 0, i === firstContentIdx, accent));
     i++;
   }
 
@@ -764,6 +780,10 @@ export function ProposalDocument({
   company: PdfCompany;
   watermark: boolean;
 }) {
+  const accent =
+    company.brandColor && /^#[0-9a-fA-F]{6}$/.test(company.brandColor)
+      ? company.brandColor
+      : ACCENT;
   const cleanedMarkdown = sanitizeProposalMarkdown(content || "").replace(/\\\$/g, "$");
   const tokens = marked.lexer(cleanedMarkdown, { gfm: true });
   const firstContentIdx = tokens.findIndex((t) => t.type !== "space");
@@ -779,7 +799,7 @@ export function ProposalDocument({
     >
       <Page size="A4" style={s.page}>
         {/* Cabeçalho institucional fixo em fluxo normal */}
-        <View style={s.header} fixed>
+        <View style={[s.header, { borderBottomColor: accent }]} fixed>
           <View style={s.headerLeft}>
             {company.logo ? (
               // eslint-disable-next-line jsx-a11y/alt-text
@@ -787,7 +807,9 @@ export function ProposalDocument({
             ) : null}
             <View style={s.companyTitleBlock}>
               <Text style={s.companyName}>{sanitize(company.name || "Proposta Comercial")}</Text>
-              {company.name ? <Text style={s.companySubtitle}>Proposta Comercial</Text> : null}
+              {company.name ? (
+                <Text style={[s.companySubtitle, { color: accent }]}>Proposta Comercial</Text>
+              ) : null}
             </View>
           </View>
           <View style={s.headerRight}>
@@ -806,7 +828,7 @@ export function ProposalDocument({
           </Text>
         ) : null}
 
-        {renderTokensWithKeepTogether(tokens, firstContentIdx)}
+        {renderTokensWithKeepTogether(tokens, firstContentIdx, accent)}
 
         {/* Rodapé fixo com contatos e paginação */}
         <View style={s.footer} fixed>

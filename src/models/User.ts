@@ -13,6 +13,8 @@ const CompanySchema = new Schema(
     differentials: { type: String, default: "" },
     // Logo armazenada como data URL (base64) — limitada a ~300KB no upload.
     logo: { type: String, default: "" },
+    // Cor primária da marca aplicada nos títulos, tabelas e detalhes do PDF.
+    brandColor: { type: String, default: "#4f46e5" },
   },
   { _id: false }
 );

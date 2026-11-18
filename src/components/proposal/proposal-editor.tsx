@@ -1,28 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
   Check,
-  CheckCircle2,
   Columns2,
   Copy,
+  CopyPlus,
   Download,
   Eye,
+  LayoutList,
   Loader2,
+  MessageCircle,
   PencilLine,
   Save,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { StatusBadge, type ProposalStatus } from "@/components/dashboard/status-badge";
+import { StatusSelect, type ProposalStatus } from "@/components/dashboard/status-badge";
 import { Markdown } from "@/components/markdown";
+import { SectionEditor } from "@/components/proposal/section-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { extractProposalTotalBrl, formatBrl } from "@/lib/proposal-charts";
 import { cn, formatDate } from "@/lib/utils";
 
 type ProposalData = {
@@ -44,11 +48,34 @@ type ProposalData = {
     website?: string;
     address?: string;
     logo?: string;
+    brandColor?: string;
   };
   watermark: boolean;
 };
 
-type ViewMode = "preview" | "edit" | "split";
+type ViewMode = "preview" | "sections" | "edit" | "split";
+
+function buildDefaultWhatsappMessage(opts: {
+  clientName?: string;
+  title: string;
+  companyName?: string;
+  totalBrl: number;
+}): string {
+  const greeting = opts.clientName?.trim()
+    ? `Olá, *${opts.clientName.trim()}*! Tudo bem?`
+    : "Olá! Tudo bem?";
+  const sender = opts.companyName?.trim() ? ` da *${opts.companyName.trim()}*` : "";
+  const totalPart =
+    opts.totalBrl > 0
+      ? `\n💰 *Investimento previsto:* ${formatBrl(opts.totalBrl)}`
+      : "";
+
+  return `${greeting}
+
+Acabei de estruturar a proposta comercial completa${sender} para o projeto *${opts.title.trim()}* em PDF, com escopo detalhado, cronograma de entregas e condições comerciais.${totalPart}
+
+Segue o arquivo em anexo! Assim que puder dar uma olhada, me avise para alinharmos os próximos passos. 🚀`;
+}
 
 export function ProposalEditor({ initial }: { initial: ProposalData }) {
   const router = useRouter();
@@ -58,11 +85,37 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
   const [error, setError] = useState(initial.error);
   const [updatedAt, setUpdatedAt] = useState(initial.updatedAt);
 
-  const [mode, setMode] = useState<ViewMode>("preview");
+  const [mode, setMode] = useState<ViewMode>("sections");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedWhats, setCopiedWhats] = useState(false);
+
+  const totalBrl = useMemo(() => extractProposalTotalBrl(content), [content]);
+  const [whatsMessage, setWhatsMessage] = useState(() =>
+    buildDefaultWhatsappMessage({
+      clientName: initial.clientName,
+      title: initial.title,
+      companyName: initial.company?.name,
+      totalBrl: extractProposalTotalBrl(initial.content),
+    })
+  );
+  const [whatsEdited, setWhatsEdited] = useState(false);
+
+  useEffect(() => {
+    if (!whatsEdited) {
+      setWhatsMessage(
+        buildDefaultWhatsappMessage({
+          clientName: initial.clientName,
+          title,
+          companyName: initial.company?.name,
+          totalBrl,
+        })
+      );
+    }
+  }, [title, totalBrl, initial.clientName, initial.company?.name, whatsEdited]);
 
   // Se a proposta ainda estiver gerando em background, busca atualizações periodicamente
   useEffect(() => {
@@ -86,7 +139,10 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
     return () => clearInterval(interval);
   }, [status, initial.id, router]);
 
-  async function saveChanges(nextStatus?: "draft" | "final", silent = false): Promise<boolean> {
+  async function saveChanges(
+    nextStatus?: "draft" | "sent" | "approved" | "rejected",
+    silent = false
+  ): Promise<boolean> {
     setSaving(true);
     try {
       const res = await fetch(`/api/proposals/${initial.id}`, {
@@ -145,11 +201,36 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
     }
   }
 
+  async function handleDuplicate() {
+    setDuplicating(true);
+    try {
+      if (dirty) await saveChanges(undefined, true);
+      const res = await fetch(`/api/proposals/${initial.id}/duplicate`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.id) throw new Error(data.error ?? "Erro ao duplicar proposta.");
+      toast.success("Proposta duplicada!");
+      router.push(`/dashboard/propostas/${data.id}`);
+      router.refresh();
+    } catch (err) {
+      toast.error((err as Error).message);
+      setDuplicating(false);
+    }
+  }
+
   async function handleCopy() {
     await navigator.clipboard.writeText(content);
     setCopied(true);
-    toast.success("Texto copiado para a área de transferência.");
+    toast.success("Markdown copiado para a área de transferência.");
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleCopyWhats() {
+    await navigator.clipboard.writeText(whatsMessage);
+    setCopiedWhats(true);
+    toast.success("Mensagem para WhatsApp copiada!");
+    setTimeout(() => setCopiedWhats(false), 2000);
   }
 
   async function handleDelete() {
@@ -162,6 +243,8 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
   }
 
   const c = initial.company;
+  const brandColor =
+    c?.brandColor && /^#[0-9a-fA-F]{6}$/.test(c.brandColor) ? c.brandColor : "#4f46e5";
   const contactLine = [c?.email, c?.phone, c?.website].filter(Boolean).join("  ·  ");
 
   return (
@@ -174,7 +257,11 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
               <ArrowLeft className="size-3.5" /> Propostas
             </Link>
             <span>/</span>
-            <StatusBadge status={status} />
+            <StatusSelect
+              proposalId={initial.id}
+              status={status}
+              onStatusChange={(next) => setStatus(next)}
+            />
             <span>· Atualizada em {formatDate(updatedAt, true)}</span>
             {dirty && <span className="font-medium text-amber-600">· Alterações não salvas</span>}
           </div>
@@ -194,25 +281,24 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
             type="button"
             variant="outline"
             size="sm"
+            onClick={handleDuplicate}
+            disabled={duplicating || status === "generating"}
+            title="Criar uma cópia editável desta proposta"
+          >
+            {duplicating ? <Loader2 className="animate-spin" /> : <CopyPlus />}
+            Duplicar
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={handleCopy}
             disabled={!content || status === "generating"}
           >
             {copied ? <Check /> : <Copy />}
             Copiar
           </Button>
-
-          {(status === "draft" || status === "final") && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => saveChanges(status === "final" ? "draft" : "final")}
-              disabled={saving}
-            >
-              <CheckCircle2 className={cn(status === "final" && "text-emerald-600")} />
-              {status === "final" ? "Marcar como rascunho" : "Marcar como finalizada"}
-            </Button>
-          )}
 
           <Button
             type="button"
@@ -261,9 +347,19 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
         </div>
       )}
 
-      {/* Alternador Visualizar / Editar / Lado a lado */}
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <div className="inline-flex rounded-lg border bg-background p-1">
+      {/* Alternador de modos de revisão/edição */}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex flex-wrap rounded-lg border bg-background p-1">
+          <button
+            type="button"
+            onClick={() => setMode("sections")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
+              mode === "sections" && "bg-accent text-foreground"
+            )}
+          >
+            <LayoutList className="size-3.5" /> Revisar por Seções
+          </button>
           <button
             type="button"
             onClick={() => setMode("preview")}
@@ -272,7 +368,7 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
               mode === "preview" && "bg-accent text-foreground"
             )}
           >
-            <Eye className="size-3.5" /> Visualizar
+            <Eye className="size-3.5" /> Prévia Folha PDF
           </button>
           <button
             type="button"
@@ -282,7 +378,7 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
               mode === "edit" && "bg-accent text-foreground"
             )}
           >
-            <PencilLine className="size-3.5" /> Editar Markdown
+            <PencilLine className="size-3.5" /> Markdown Completo
           </button>
           <button
             type="button"
@@ -296,15 +392,31 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
           </button>
         </div>
 
-        {initial.watermark && (
+        {initial.watermark ? (
           <Link href="/dashboard/plano" className="text-xs text-muted-foreground hover:text-brand">
             PDF com marca d&apos;água · <span className="font-medium text-brand">Remover no Pro →</span>
           </Link>
+        ) : (
+          <span className="text-xs font-medium text-emerald-700">
+            ✓ PDF White-Label ativo (sem marca d&apos;água)
+          </span>
         )}
       </div>
 
       {/* Área principal */}
       <div className={cn("mt-4 grid gap-6", mode === "split" && "lg:grid-cols-2")}>
+        {mode === "sections" && (
+          <SectionEditor
+            content={content}
+            disabled={status === "generating"}
+            brandColor={brandColor}
+            onChange={(nextMd) => {
+              setContent(nextMd);
+              setDirty(true);
+            }}
+          />
+        )}
+
         {(mode === "edit" || mode === "split") && (
           <div className="flex flex-col rounded-xl border bg-background shadow-xs">
             <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
@@ -327,24 +439,40 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
         {(mode === "preview" || mode === "split") && (
           <div className="relative overflow-hidden rounded-xl border bg-white shadow-sm">
             {/* Simulação de folha A4 do PDF */}
-            <div className="flex items-center justify-between gap-4 border-b px-6 py-5 sm:px-12">
+            <div
+              className="flex items-center justify-between gap-4 border-b px-6 py-5 sm:px-12"
+              style={{ borderBottomColor: brandColor }}
+            >
               <div className="flex items-center gap-3">
                 {c?.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={c.logo} alt="" className="max-h-9 max-w-[120px] object-contain" />
                 ) : null}
-                <span className="text-sm font-semibold text-slate-900">
-                  {c?.name || "Proposta Comercial"}
-                </span>
+                <div>
+                  <span className="block text-sm font-semibold text-slate-900">
+                    {c?.name || "Proposta Comercial"}
+                  </span>
+                  {c?.name && (
+                    <span
+                      className="block text-[10px] font-medium uppercase tracking-wider"
+                      style={{ color: brandColor }}
+                    >
+                      Proposta Comercial
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="text-right text-xs text-slate-500">
-                {c?.cnpj && <p>CNPJ {c.cnpj}</p>}
+                {c?.cnpj && <p className="font-medium text-slate-700">CNPJ: {c.cnpj}</p>}
                 {c?.address && <p>{c.address}</p>}
               </div>
             </div>
 
             <div className="px-6 py-8 sm:px-12 sm:py-10">
-              <div className="mb-4 h-1 w-11 rounded-full bg-brand" />
+              <div
+                className="mb-4 h-1 w-11 rounded-full"
+                style={{ backgroundColor: brandColor }}
+              />
               {content ? (
                 <Markdown content={content} streaming={status === "generating"} />
               ) : (
@@ -364,6 +492,58 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
           </div>
         )}
       </div>
+
+      {/* Card de Mensagem Pronta para WhatsApp pós-geração */}
+      {content && status !== "generating" && (
+        <section className="mt-8 rounded-xl border bg-background p-5 shadow-xs sm:p-6">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                <MessageCircle className="size-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold">
+                  Mensagem pronta para enviar no WhatsApp
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Copie o texto abaixo e envie junto com o PDF baixado para o seu cliente.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleCopyWhats}>
+                {copiedWhats ? <Check className="text-emerald-600" /> : <Copy />}
+                Copiar mensagem para WhatsApp
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                asChild
+              >
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(whatsMessage)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageCircle /> Abrir no WhatsApp
+                </a>
+              </Button>
+            </div>
+          </div>
+
+          <Textarea
+            value={whatsMessage}
+            onChange={(e) => {
+              setWhatsMessage(e.target.value);
+              setWhatsEdited(true);
+            }}
+            rows={5}
+            className="mt-4 bg-muted/20 text-sm leading-relaxed"
+          />
+        </section>
+      )}
     </div>
   );
 }

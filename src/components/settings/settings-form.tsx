@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
+import { BrandColorPicker } from "@/components/brand-color-picker";
 import { CompanyFields } from "@/components/company-fields";
 import { LogoUploader } from "@/components/logo-uploader";
 import { TonePicker } from "@/components/tone-picker";
@@ -18,29 +19,33 @@ export function SettingsForm({
   email,
   initialCompany,
   initialLogo,
+  initialBrandColor,
   initialTone,
 }: {
   initialName: string;
   email: string;
   initialCompany: CompanyValues;
   initialLogo: string;
+  initialBrandColor: string;
   initialTone: Tone;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [company, setCompany] = useState<CompanyValues>(initialCompany);
   const [logo, setLogo] = useState(initialLogo);
+  const [brandColor, setBrandColor] = useState(initialBrandColor || "#4f46e5");
   const [tone, setTone] = useState<Tone>(initialTone);
   const [saving, setSaving] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const validColor = /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#4f46e5";
     setSaving(true);
     try {
       const res = await fetch("/api/user", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, company, logo, tone }),
+        body: JSON.stringify({ name, company, logo, brandColor: validColor, tone }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Erro ao salvar configurações");
@@ -55,18 +60,25 @@ export function SettingsForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-8 space-y-6">
-      {/* Dados da empresa + Logo */}
+      {/* Identidade Visual e Dados da Empresa */}
       <section className="rounded-xl border bg-background p-6 shadow-xs">
-        <h2 className="font-semibold">Dados padrão da empresa</h2>
+        <h2 className="font-semibold">Identidade visual e dados da empresa</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Usados automaticamente ao criar novas propostas e no cabeçalho/rodapé dos PDFs.
+          Seu logotipo, cor da marca e dados institucionais são aplicados automaticamente nos PDFs gerados.
         </p>
 
         <div className="mt-6 space-y-6">
-          <div className="space-y-2">
-            <Label>Logo da empresa</Label>
-            <LogoUploader value={logo} onChange={setLogo} />
+          <div className="grid gap-6 border-b pb-6 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Logotipo da empresa</Label>
+              <LogoUploader value={logo} onChange={setLogo} />
+            </div>
+            <div className="space-y-2">
+              <Label>Cor primária da marca no PDF</Label>
+              <BrandColorPicker value={brandColor} onChange={setBrandColor} />
+            </div>
           </div>
+
           <CompanyFields value={company} onChange={setCompany} />
         </div>
       </section>

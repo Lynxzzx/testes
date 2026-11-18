@@ -4,7 +4,7 @@ import { FileText, Lock, Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ProposalActions } from "@/components/dashboard/proposal-actions";
 import { ProposalsAnalytics } from "@/components/dashboard/proposals-analytics";
-import { StatusBadge, type ProposalStatus } from "@/components/dashboard/status-badge";
+import { StatusSelect, type ProposalStatus } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getCurrentUser } from "@/lib/current-user";
@@ -18,7 +18,9 @@ export const metadata: Metadata = { title: "Propostas" };
 const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Todas" },
   { value: "draft", label: "Rascunhos" },
-  { value: "final", label: "Finalizadas" },
+  { value: "sent", label: "Enviadas" },
+  { value: "approved", label: "Aprovadas" },
+  { value: "rejected", label: "Recusadas" },
 ];
 
 export default async function DashboardPage({
@@ -31,19 +33,30 @@ export default async function DashboardPage({
   const plan = getPlan(user);
   const usage = getUsage(user);
 
-  const filter: Record<string, unknown> = { user: user._id };
+  const baseFilter: Record<string, unknown> = { user: user._id };
   if (Number.isFinite(plan.historyDays)) {
-    filter.createdAt = { $gte: new Date(Date.now() - plan.historyDays * 86_400_000) };
-  }
-  if (status === "draft" || status === "final") filter.status = status;
-  if (q.trim()) {
-    const rx = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    filter.$or = [{ title: rx }, { clientName: rx }];
+    baseFilter.createdAt = { $gte: new Date(Date.now() - plan.historyDays * 86_400_000) };
   }
 
-  const [proposals, hiddenCount] = await Promise.all([
-    Proposal.find(filter)
+  const listFilter: Record<string, unknown> = { ...baseFilter };
+  if (status === "approved") {
+    listFilter.status = { $in: ["approved", "final"] };
+  } else if (status === "draft" || status === "sent" || status === "rejected") {
+    listFilter.status = status;
+  }
+  if (q.trim()) {
+    const rx = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    listFilter.$or = [{ title: rx }, { clientName: rx }];
+  }
+
+  const [proposals, allPeriodProposals, hiddenCount] = await Promise.all([
+    Proposal.find(listFilter)
       .select("title clientName status tone createdAt updatedAt")
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean(),
+    Proposal.find(baseFilter)
+      .select("status tone content createdAt")
       .sort({ createdAt: -1 })
       .limit(200)
       .lean(),
@@ -55,7 +68,7 @@ export default async function DashboardPage({
       : Promise.resolve(0),
   ]);
 
-  const isEmpty = proposals.length === 0 && !q && !status;
+  const isEmpty = allPeriodProposals.length === 0 && !q && !status;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
@@ -92,14 +105,17 @@ export default async function DashboardPage({
         </div>
       ) : (
         <>
-          <ProposalsAnalytics proposals={proposals} />
+          <ProposalsAnalytics proposals={allPeriodProposals} />
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex gap-1 rounded-lg border bg-background p-1">
+            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-1">
               {FILTERS.map((f) => (
                 <Link
                   key={f.value}
-                  href={{ pathname: "/dashboard", query: { ...(q ? { q } : {}), ...(f.value ? { status: f.value } : {}) } }}
+                  href={{
+                    pathname: "/dashboard",
+                    query: { ...(q ? { q } : {}), ...(f.value ? { status: f.value } : {}) },
+                  }}
                   className={cn(
                     "rounded-md px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground",
                     status === f.value && "bg-accent font-medium text-foreground"
@@ -112,12 +128,17 @@ export default async function DashboardPage({
             <form className="relative sm:w-72">
               {status && <input type="hidden" name="status" value={status} />}
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input name="q" defaultValue={q} placeholder="Buscar por título ou cliente" className="bg-background pl-9" />
+              <Input
+                name="q"
+                defaultValue={q}
+                placeholder="Buscar por título ou cliente"
+                className="bg-background pl-9"
+              />
             </form>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-xl border bg-background">
-            <div className="hidden grid-cols-[1fr_140px_120px_130px_44px] gap-4 border-b bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground md:grid">
+            <div className="hidden grid-cols-[1fr_130px_140px_130px_44px] gap-4 border-b bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground md:grid">
               <span>Proposta</span>
               <span>Tom</span>
               <span>Status</span>
@@ -125,18 +146,24 @@ export default async function DashboardPage({
               <span />
             </div>
             {proposals.length === 0 ? (
-              <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhuma proposta encontrada.</p>
+              <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                Nenhuma proposta encontrada.
+              </p>
             ) : (
               <ul className="divide-y">
                 {proposals.map((p) => {
                   const id = p._id.toString();
+                  const hasContent =
+                    p.status !== "generating" && p.status !== "error";
                   return (
                     <li
                       key={id}
-                      className="group grid grid-cols-[1fr_44px] items-center gap-x-4 gap-y-1 px-4 py-3 transition-colors hover:bg-muted/30 md:grid-cols-[1fr_140px_120px_130px_44px]"
+                      className="group grid grid-cols-[1fr_44px] items-center gap-x-4 gap-y-1 px-4 py-3 transition-colors hover:bg-muted/30 md:grid-cols-[1fr_130px_140px_130px_44px]"
                     >
                       <Link href={`/dashboard/propostas/${id}`} className="min-w-0">
-                        <p className="truncate text-sm font-medium group-hover:text-brand">{p.title}</p>
+                        <p className="truncate text-sm font-medium group-hover:text-brand">
+                          {p.title}
+                        </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {p.clientName || "Cliente não informado"}
                           <span className="md:hidden"> · {formatDate(p.createdAt)}</span>
@@ -146,11 +173,13 @@ export default async function DashboardPage({
                         {TONES[p.tone as Tone]?.label ?? "—"}
                       </span>
                       <span className="col-start-1 row-start-2 md:col-auto md:row-auto">
-                        <StatusBadge status={p.status as ProposalStatus} />
+                        <StatusSelect proposalId={id} status={p.status as ProposalStatus} />
                       </span>
-                      <span className="hidden text-sm text-muted-foreground md:block">{formatDate(p.createdAt)}</span>
+                      <span className="hidden text-sm text-muted-foreground md:block">
+                        {formatDate(p.createdAt)}
+                      </span>
                       <span className="col-start-2 row-span-2 row-start-1 md:col-auto md:row-auto">
-                        <ProposalActions id={id} title={p.title} hasContent={p.status === "draft" || p.status === "final"} />
+                        <ProposalActions id={id} title={p.title} hasContent={hasContent} />
                       </span>
                     </li>
                   );
@@ -163,8 +192,8 @@ export default async function DashboardPage({
             <div className="mt-4 flex flex-col items-start justify-between gap-3 rounded-xl border bg-background p-4 sm:flex-row sm:items-center">
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Lock className="size-4" />
-                {hiddenCount} proposta{hiddenCount > 1 ? "s" : ""} com mais de 30 dias. Desbloqueie o histórico completo
-                no Pro.
+                {hiddenCount} proposta{hiddenCount > 1 ? "s" : ""} com mais de 30 dias. Desbloqueie o
+                histórico completo no Pro.
               </p>
               <Button asChild size="sm" variant="outline">
                 <Link href="/dashboard/plano">Ver plano Pro</Link>

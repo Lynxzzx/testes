@@ -52,7 +52,11 @@ export async function POST(req: Request) {
     brief: input.brief,
     tone: input.tone,
     sections: input.sections,
-    company: { ...input.company, logo: user.company?.logo ?? "" },
+    company: {
+      ...input.company,
+      logo: user.company?.logo ?? "",
+      brandColor: user.company?.brandColor || "#4f46e5",
+    },
     status: "generating",
   });
 

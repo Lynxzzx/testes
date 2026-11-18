@@ -44,6 +44,7 @@ export default async function ProposalDetailPage({
           website: proposal.company?.website || user.company?.website || "",
           address: proposal.company?.address || user.company?.address || "",
           logo: user.company?.logo || proposal.company?.logo || "",
+          brandColor: user.company?.brandColor || proposal.company?.brandColor || "#4f46e5",
         },
         watermark: plan.watermark,
       }}

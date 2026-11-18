@@ -177,3 +177,47 @@ export function extractChartFromMarkedTable(table: Tokens.Table) {
     timeline: extractTimelineChart(headers, rows),
   };
 }
+
+/**
+ * Extrai o valor total de investimento de um documento Markdown (a partir da tabela de
+ * Investimento ou linha de Total).
+ */
+export function extractProposalTotalBrl(markdown: string): number {
+  if (!markdown) return 0;
+
+  // 1. Procura linha de tabela com "**Total**" ou "Total" e um valor R$
+  const lines = markdown.split("\n");
+  for (const line of lines) {
+    if (line.includes("|") && /\b(total|investimento total)\b/i.test(line)) {
+      const cells = line
+        .split("|")
+        .map((c) => c.trim())
+        .filter(Boolean);
+      for (let i = cells.length - 1; i >= 0; i--) {
+        const val = parseBrlAmount(cells[i]);
+        if (val !== null && val > 0) return val;
+      }
+    }
+  }
+
+  // 2. Soma as linhas da tabela de investimento caso não tenha linha Total explícita
+  let inInvestmentSection = false;
+  let sum = 0;
+  for (const line of lines) {
+    if (/^##\s+/i.test(line)) {
+      inInvestmentSection = /investimento|orçamento|orcamento|valores|preço/i.test(line);
+      continue;
+    }
+    if (inInvestmentSection && line.includes("|") && !/^\s*\|[\s\-:|]+\|\s*$/.test(line)) {
+      const cells = line
+        .split("|")
+        .map((c) => c.trim())
+        .filter(Boolean);
+      if (cells.length >= 2) {
+        const val = parseBrlAmount(cells[cells.length - 1]);
+        if (val !== null && val > 0) sum += val;
+      }
+    }
+  }
+  return sum;
+}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Download, ExternalLink, MoreHorizontal, Trash2 } from "lucide-react";
+import { CopyPlus, Download, ExternalLink, MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,9 +14,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function ProposalActions({ id, title, hasContent }: { id: string; title: string; hasContent: boolean }) {
+export function ProposalActions({
+  id,
+  title,
+  hasContent,
+}: {
+  id: string;
+  title: string;
+  hasContent: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+
+  async function duplicate() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/proposals/${id}/duplicate`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Não foi possível duplicar a proposta.");
+      toast.success("Cópia criada como rascunho!");
+      router.refresh();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function remove() {
     if (!confirm(`Excluir a proposta "${title}"? Essa ação não pode ser desfeita.`)) return;
@@ -38,8 +61,11 @@ export function ProposalActions({ id, title, hasContent }: { id: string; title: 
       <DropdownMenuContent align="end">
         <DropdownMenuItem asChild>
           <Link href={`/dashboard/propostas/${id}`}>
-            <ExternalLink /> Abrir
+            <ExternalLink /> Abrir e editar
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={duplicate}>
+          <CopyPlus /> Duplicar proposta
         </DropdownMenuItem>
         {hasContent && (
           <DropdownMenuItem asChild>
