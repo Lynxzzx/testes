@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
       "./node_modules/pdfkit/js/standard-fonts/**/*",
       "./node_modules/pdfkit/js/data/**/*",
     ],
+    "/api/public/proposals/[id]/pdf": [
+      "./node_modules/pdfkit/js/standard-fonts/**/*",
+      "./node_modules/pdfkit/js/data/**/*",
+    ],
     "/*": [
       "./node_modules/pdfkit/js/standard-fonts/**/*",
       "./node_modules/pdfkit/js/data/**/*",

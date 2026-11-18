@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileText, Lock, Plus, Search } from "lucide-react";
+import { Eye, FileText, Lock, Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ProposalActions } from "@/components/dashboard/proposal-actions";
 import { ProposalsAnalytics } from "@/components/dashboard/proposals-analytics";
@@ -51,7 +51,7 @@ export default async function DashboardPage({
 
   const [proposals, allPeriodProposals, hiddenCount] = await Promise.all([
     Proposal.find(listFilter)
-      .select("title clientName status tone createdAt updatedAt")
+      .select("title clientName status tone viewCount lastViewedAt approvedAt approvedByName createdAt updatedAt")
       .sort({ createdAt: -1 })
       .limit(200)
       .lean(),
@@ -161,11 +161,27 @@ export default async function DashboardPage({
                       className="group grid grid-cols-[1fr_44px] items-center gap-x-4 gap-y-1 px-4 py-3 transition-colors hover:bg-muted/30 md:grid-cols-[1fr_130px_140px_130px_44px]"
                     >
                       <Link href={`/dashboard/propostas/${id}`} className="min-w-0">
-                        <p className="truncate text-sm font-medium group-hover:text-brand">
-                          {p.title}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-medium group-hover:text-brand">
+                            {p.title}
+                          </p>
+                          {(p.viewCount ?? 0) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded border border-sky-500/25 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+                              title={
+                                p.lastViewedAt
+                                  ? `Visualizada ${p.viewCount}x · última em ${formatDate(p.lastViewedAt, true)}`
+                                  : `Visualizada ${p.viewCount}x pelo cliente`
+                              }
+                            >
+                              <Eye className="size-2.5" />
+                              Visualizada{p.lastViewedAt ? ` · ${formatDate(p.lastViewedAt, true)}` : ""}
+                            </span>
+                          )}
+                        </div>
                         <p className="truncate text-xs text-muted-foreground">
                           {p.clientName || "Cliente não informado"}
+                          {p.approvedByName ? ` · Aprovada por ${p.approvedByName}` : ""}
                           <span className="md:hidden"> · {formatDate(p.createdAt)}</span>
                         </p>
                       </Link>

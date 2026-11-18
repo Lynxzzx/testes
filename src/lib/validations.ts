@@ -38,6 +38,7 @@ export const generateSchema = z.object({
   sections: z.array(sectionSchema).min(1, "Selecione ao menos uma seção"),
   company: companySchema,
   saveAsDefault: z.boolean().optional().default(false),
+  suggestMarketPricing: z.boolean().optional().default(false),
 });
 
 export const updateProposalSchema = z.object({

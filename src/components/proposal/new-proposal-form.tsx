@@ -7,6 +7,7 @@ import { Building2, ChevronDown, Loader2, Lock, Sparkles, Square, Wand2 } from "
 import { toast } from "sonner";
 import { CompanyFields } from "@/components/company-fields";
 import { Markdown } from "@/components/markdown";
+import { BriefThermometer } from "@/components/proposal/brief-thermometer";
 import { TonePicker } from "@/components/tone-picker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,6 +68,7 @@ export function NewProposalForm({
   const [company, setCompany] = useState<CompanyValues>(defaultCompany);
   const [editCompany, setEditCompany] = useState(!defaultCompany.name);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [suggestMarketPricing, setSuggestMarketPricing] = useState(true);
 
   const [phase, setPhase] = useState<Phase>("form");
   const [exampleIdx, setExampleIdx] = useState(0);
@@ -112,7 +114,16 @@ export function NewProposalForm({
       const res = await fetch("/api/proposals/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, clientName, brief, tone, sections, company, saveAsDefault }),
+        body: JSON.stringify({
+          title,
+          clientName,
+          brief,
+          tone,
+          sections,
+          company,
+          saveAsDefault,
+          suggestMarketPricing,
+        }),
         signal: controller.signal,
       });
 
@@ -254,9 +265,26 @@ export function NewProposalForm({
               placeholder={BRIEF_PLACEHOLDER}
               className="min-h-64 resize-y font-[450] leading-relaxed"
             />
-            <p className="text-xs text-muted-foreground">
-              Quanto mais contexto (objetivos, dores, orçamento, prazos, decisores), melhor a proposta.
-            </p>
+            <BriefThermometer
+              brief={brief}
+              clientName={clientName}
+              suggestMarketPricing={suggestMarketPricing}
+            />
+            <label className="mt-2 flex cursor-pointer items-start gap-2.5 rounded-lg border bg-muted/20 px-3.5 py-2.5 text-sm transition-colors hover:bg-muted/40">
+              <Checkbox
+                checked={suggestMarketPricing}
+                onCheckedChange={(v) => setSuggestMarketPricing(v === true)}
+                className="mt-0.5"
+              />
+              <div>
+                <span className="font-medium">
+                  Sugerir faixa de preço de mercado (caso não tenha definido valor)
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  Quando nenhum orçamento é informado no briefing, a IA estima valores realistas de mercado em R$, distribui nas etapas e aplica ancoragem de retorno financeiro.
+                </p>
+              </div>
+            </label>
           </div>
         </div>
       </section>

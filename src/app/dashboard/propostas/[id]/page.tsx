@@ -36,6 +36,10 @@ export default async function ProposalDetailPage({
         error: proposal.error ?? "",
         createdAt: proposal.createdAt.toISOString(),
         updatedAt: proposal.updatedAt.toISOString(),
+        viewCount: proposal.viewCount ?? 0,
+        lastViewedAt: proposal.lastViewedAt ? proposal.lastViewedAt.toISOString() : null,
+        approvedAt: proposal.approvedAt ? proposal.approvedAt.toISOString() : null,
+        approvedByName: proposal.approvedByName ?? "",
         company: {
           name: proposal.company?.name || user.company?.name || "",
           cnpj: proposal.company?.cnpj || user.company?.cnpj || "",

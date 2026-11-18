@@ -62,6 +62,7 @@ export function buildProposalMessages(input: {
   tone: Tone;
   sections: SectionKey[];
   company: CompanyInput;
+  suggestMarketPricing?: boolean;
 }): ChatMessage[] {
   const today = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(new Date());
   const sectionList = (input.sections.length ? input.sections : (Object.keys(SECTIONS) as SectionKey[]))
@@ -106,6 +107,11 @@ ${input.brief.trim()}
 LEMBRETES CRÍTICOS ANTES DE REDIGIR:
 - Na seção "Por que nós", destaque APENAS a expertise técnica, metodologia e diferenciais da <empresa_prestadora>. Nunca atribua métricas ou conquistas do cliente (<cliente_e_briefing>) à empresa prestadora.
 - Se o briefing mencionar orçamento ou teto de valor, distribua os valores entre os itens da tabela de Investimento para somar dentro desse orçamento (formato R$ X.XXX,00).
+${
+  input.suggestMarketPricing
+    ? `- SUGESTÃO INTELIGENTE DE PREÇO DE MERCADO ATIVADA: Caso o briefing NÃO mencione um valor ou orçamento fechado, estime uma faixa de preço justa e realista praticada no mercado brasileiro B2B para o porte e escopo descritos (em R$ X.XXX,00), distribua os valores proporcionalmente entre cada etapa na tabela de Investimento somando o **Total** (NÃO use "A definir") e aplique **ancoragem de preço** antes da tabela (contextualizando o retorno sobre o investimento e o custo de não resolver o problema antes de mostrar o preço).`
+    : ""
+}
 - NÃO use LaTeX, NÃO use $...$ para matemática ou métricas e NÃO use \\$ com barra invertida.
 
 Gere agora a proposta comercial completa em Markdown.`;

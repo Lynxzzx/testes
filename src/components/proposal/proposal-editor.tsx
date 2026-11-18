@@ -11,8 +11,10 @@ import {
   Copy,
   CopyPlus,
   Download,
+  ExternalLink,
   Eye,
   LayoutList,
+  Link2,
   Loader2,
   MessageCircle,
   PencilLine,
@@ -40,6 +42,10 @@ type ProposalData = {
   error: string;
   createdAt: string;
   updatedAt: string;
+  viewCount?: number;
+  lastViewedAt?: string | null;
+  approvedAt?: string | null;
+  approvedByName?: string;
   company: {
     name?: string;
     cnpj?: string;
@@ -56,10 +62,12 @@ type ProposalData = {
 type ViewMode = "preview" | "sections" | "edit" | "split";
 
 function buildDefaultWhatsappMessage(opts: {
+  id: string;
   clientName?: string;
   title: string;
   companyName?: string;
   totalBrl: number;
+  origin?: string;
 }): string {
   const greeting = opts.clientName?.trim()
     ? `Olá, *${opts.clientName.trim()}*! Tudo bem?`
@@ -69,12 +77,15 @@ function buildDefaultWhatsappMessage(opts: {
     opts.totalBrl > 0
       ? `\n💰 *Investimento previsto:* ${formatBrl(opts.totalBrl)}`
       : "";
+  const linkPart = opts.origin
+    ? `\n🔗 *Acesse e aprove online:* ${opts.origin}/p/${opts.id}`
+    : "";
 
   return `${greeting}
 
-Acabei de estruturar a proposta comercial completa${sender} para o projeto *${opts.title.trim()}* em PDF, com escopo detalhado, cronograma de entregas e condições comerciais.${totalPart}
+Acabei de estruturar a proposta comercial completa${sender} para o projeto *${opts.title.trim()}*, com escopo detalhado, cronograma de entregas e condições comerciais.${totalPart}${linkPart}
 
-Segue o arquivo em anexo! Assim que puder dar uma olhada, me avise para alinharmos os próximos passos. 🚀`;
+Você pode visualizar pelo link acima (e aprovar em 1 clique) ou pelo PDF em anexo. Qualquer dúvida, fico à disposição! 🚀`;
 }
 
 export function ProposalEditor({ initial }: { initial: ProposalData }) {
@@ -91,11 +102,13 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
   const [downloading, setDownloading] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [copiedWhats, setCopiedWhats] = useState(false);
 
   const totalBrl = useMemo(() => extractProposalTotalBrl(content), [content]);
   const [whatsMessage, setWhatsMessage] = useState(() =>
     buildDefaultWhatsappMessage({
+      id: initial.id,
       clientName: initial.clientName,
       title: initial.title,
       companyName: initial.company?.name,
@@ -106,16 +119,19 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
 
   useEffect(() => {
     if (!whatsEdited) {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
       setWhatsMessage(
         buildDefaultWhatsappMessage({
+          id: initial.id,
           clientName: initial.clientName,
           title,
           companyName: initial.company?.name,
           totalBrl,
+          origin,
         })
       );
     }
-  }, [title, totalBrl, initial.clientName, initial.company?.name, whatsEdited]);
+  }, [title, totalBrl, initial.id, initial.clientName, initial.company?.name, whatsEdited]);
 
   // Se a proposta ainda estiver gerando em background, busca atualizações periodicamente
   useEffect(() => {
@@ -219,6 +235,17 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
     }
   }
 
+  async function handleCopyPublicLink() {
+    if (dirty) {
+      await saveChanges(undefined, true);
+    }
+    const url = `${window.location.origin}/p/${initial.id}`;
+    await navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    toast.success("Link interativo copiado! Envie para o seu cliente.");
+    setTimeout(() => setCopiedLink(false), 2500);
+  }
+
   async function handleCopy() {
     await navigator.clipboard.writeText(content);
     setCopied(true);
@@ -262,6 +289,20 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
               status={status}
               onStatusChange={(next) => setStatus(next)}
             />
+            {(initial.viewCount ?? 0) > 0 && (
+              <span
+                className="inline-flex items-center gap-1 rounded-md border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700"
+                title={
+                  initial.lastViewedAt
+                    ? `Última visualização pelo cliente em ${formatDate(initial.lastViewedAt, true)}`
+                    : undefined
+                }
+              >
+                <Eye className="size-3" />
+                Visualizada pelo cliente ({initial.viewCount}x
+                {initial.lastViewedAt ? ` · ${formatDate(initial.lastViewedAt, true)}` : ""})
+              </span>
+            )}
             <span>· Atualizada em {formatDate(updatedAt, true)}</span>
             {dirty && <span className="font-medium text-amber-600">· Alterações não salvas</span>}
           </div>
@@ -309,6 +350,31 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
           >
             {saving ? <Loader2 className="animate-spin" /> : <Save />}
             Salvar
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleCopyPublicLink}
+            disabled={!content || status === "generating"}
+            className="border-brand/40 text-brand hover:bg-brand/10 hover:text-brand"
+          >
+            {copiedLink ? <Check /> : <Link2 />}
+            Copiar Link Interativo
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            asChild
+            title="Abrir página pública interativa em nova aba"
+          >
+            <Link href={`/p/${initial.id}`} target="_blank">
+              <ExternalLink className="size-4" />
+            </Link>
           </Button>
 
           <Button
@@ -407,6 +473,7 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
       <div className={cn("mt-4 grid gap-6", mode === "split" && "lg:grid-cols-2")}>
         {mode === "sections" && (
           <SectionEditor
+            proposalId={initial.id}
             content={content}
             disabled={status === "generating"}
             brandColor={brandColor}

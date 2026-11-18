@@ -1,9 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Check, PencilLine, Plus, Trash2 } from "lucide-react";
+import { Check, Cpu, Flame, Loader2, PencilLine, Plus, Minimize2, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatBrl, parseBrlAmount } from "@/lib/proposal-charts";
@@ -136,11 +143,13 @@ function buildInvestmentSectionBody(
 }
 
 export function SectionEditor({
+  proposalId,
   content,
   onChange,
   disabled,
   brandColor = "#4f46e5",
 }: {
+  proposalId: string;
   content: string;
   onChange: (nextMarkdown: string) => void;
   disabled?: boolean;
@@ -148,10 +157,42 @@ export function SectionEditor({
 }) {
   const sections = splitMarkdownSections(content);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [refiningIdx, setRefiningIdx] = useState<number | null>(null);
 
   function updateSection(idx: number, patch: Partial<ParsedSection>) {
     const next = sections.map((s, i) => (i === idx ? { ...s, ...patch } : s));
     onChange(joinMarkdownSections(next));
+  }
+
+  async function refineSectionWithAi(
+    idx: number,
+    action: "persuasive" | "shorten" | "technical"
+  ) {
+    const target = sections[idx];
+    if (!target || !target.body.trim()) return;
+
+    setRefiningIdx(idx);
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}/refine-section`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          heading: target.heading,
+          body: target.body,
+          action,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.content) {
+        throw new Error(data.error ?? "Não foi possível refinar esta seção.");
+      }
+      updateSection(idx, { body: data.content });
+      toast.success(`Seção "${target.heading || "Introdução"}" refinada com IA!`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setRefiningIdx(null);
+    }
   }
 
   return (
@@ -189,24 +230,64 @@ export function SectionEditor({
                 )}
               </div>
 
-              <Button
-                type="button"
-                variant={isEditing ? "brand" : "ghost"}
-                size="sm"
-                className="h-7 text-xs"
-                disabled={disabled}
-                onClick={() => setEditingIdx(isEditing ? null : idx)}
-              >
-                {isEditing ? (
-                  <>
-                    <Check className="size-3.5" /> Concluir edição
-                  </>
-                ) : (
-                  <>
-                    <PencilLine className="size-3.5" /> Editar texto
-                  </>
+              <div className="flex items-center gap-1.5">
+                {!isIntro && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs text-brand hover:text-brand"
+                        disabled={disabled || refiningIdx !== null}
+                      >
+                        {refiningIdx === idx ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin" /> Refinando…
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="size-3.5" /> Refinar com IA
+                          </>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuItem onSelect={() => refineSectionWithAi(idx, "persuasive")}>
+                        <Flame className="size-4 text-amber-500" />
+                        Deixar mais persuasivo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => refineSectionWithAi(idx, "shorten")}>
+                        <Minimize2 className="size-4 text-sky-500" />
+                        Encurtar texto
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => refineSectionWithAi(idx, "technical")}>
+                        <Cpu className="size-4 text-violet-500" />
+                        Tornar mais técnico
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
-              </Button>
+
+                <Button
+                  type="button"
+                  variant={isEditing ? "brand" : "ghost"}
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={disabled || refiningIdx === idx}
+                  onClick={() => setEditingIdx(isEditing ? null : idx)}
+                >
+                  {isEditing ? (
+                    <>
+                      <Check className="size-3.5" /> Concluir edição
+                    </>
+                  ) : (
+                    <>
+                      <PencilLine className="size-3.5" /> Editar texto
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             <div className="p-4 sm:p-6">

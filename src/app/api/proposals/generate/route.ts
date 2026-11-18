@@ -52,6 +52,7 @@ export async function POST(req: Request) {
     brief: input.brief,
     tone: input.tone,
     sections: input.sections,
+    suggestMarketPricing: input.suggestMarketPricing ?? false,
     company: {
       ...input.company,
       logo: user.company?.logo ?? "",

@@ -8,6 +8,7 @@ const ProposalSchema = new Schema(
     brief: { type: String, required: true },
     tone: { type: String, enum: ["formal", "consultivo", "direto"], default: "consultivo" },
     sections: { type: [String], default: [] },
+    suggestMarketPricing: { type: Boolean, default: false },
 
     // Snapshot dos dados da empresa no momento da geração
     company: {
@@ -32,6 +33,13 @@ const ProposalSchema = new Schema(
     },
     aiModel: { type: String, default: "" },
     error: { type: String, default: "" },
+
+    // Rastreamento do link público interativo (/p/[id])
+    viewCount: { type: Number, default: 0 },
+    lastViewedAt: { type: Date },
+    approvedAt: { type: Date },
+    approvedByName: { type: String, default: "" },
+    approvedByEmail: { type: String, default: "" },
   },
   { timestamps: true }
 );
