@@ -1,7 +1,10 @@
 import { BarChart3, CheckCircle2, FileText, PieChart, Sparkles, TrendingUp } from "lucide-react";
-import { isApprovedStatus } from "@/components/dashboard/status-badge";
 import { TONES, type Tone } from "@/lib/plans";
 import { extractProposalTotalBrl, formatBrl } from "@/lib/proposal-charts";
+
+function isApprovedStatus(status?: string | null): boolean {
+  return status === "approved" || status === "final";
+}
 
 type ProposalSummary = {
   status: string;
