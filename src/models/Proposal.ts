@@ -7,6 +7,7 @@ const ProposalSchema = new Schema(
     clientName: { type: String, default: "", trim: true },
     brief: { type: String, required: true },
     tone: { type: String, enum: ["formal", "consultivo", "direto"], default: "consultivo" },
+    customInstructions: { type: String, default: "" },
     sections: { type: [String], default: [] },
     suggestMarketPricing: { type: Boolean, default: false },
 

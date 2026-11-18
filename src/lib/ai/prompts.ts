@@ -52,8 +52,9 @@ REGRAS DE PRECIFICAÇÃO E ORÇAMENTO
    - Se houver custos recorrentes mencionados no briefing (ex: hospedagem, manutenção mensal), apresente-os claramente em texto ou linha separada (ex: R$ 800,00/mês) sem somá-los de forma confusa ao escopo fixo de implantação.
    - NUNCA preencha a tabela com "R$ [a definir]" quando o briefing já trouxer um valor ou teto de orçamento. Só use "A definir" se absolutamente nenhum valor ou faixa de orçamento for mencionado no briefing.
 8. Respeite fielmente prazos, tecnologias e restrições informados no briefing.
-9. Não inclua seção de assinatura nem bloco de contatos no final — o cabeçalho e o rodapé institucionais do PDF já exibem essas informações.
-10. Tamanho alvo: entre 650 e 1.400 palavras, proporcional à complexidade do projeto.`;
+9. Se a tag <instrucoes_do_usuario> estiver presente, trate-a com PRIORIDADE ALTA de estilo e ênfase (desde que não viole a proibição de LaTeX e a estrutura de títulos/tabelas em Markdown).
+10. Não inclua seção de assinatura nem bloco de contatos no final — o cabeçalho e o rodapé institucionais do PDF já exibem essas informações.
+11. Tamanho alvo: entre 650 e 1.400 palavras, proporcional à complexidade do projeto.`;
 
 export const FAST_CLOSE_WINDOWS: Record<
   "24h" | "48h" | "3d" | "5d" | "7d",
@@ -79,6 +80,7 @@ export function buildProposalMessages(input: {
   clientName?: string;
   brief: string;
   tone: Tone;
+  customInstructions?: string;
   sections: SectionKey[];
   company: CompanyInput;
   suggestMarketPricing?: boolean;
@@ -111,13 +113,20 @@ export function buildProposalMessages(input: {
     .filter(Boolean)
     .join("\n");
 
+  const customInstructionsBlock = input.customInstructions?.trim()
+    ? `\n<instrucoes_do_usuario>
+PRIORIDADE ALTA — Além de seguir o tom base selecionado (${TONES[input.tone].label}), respeite rigorosamente estas instruções específicas de estilo e ênfase definidas pelo autor da proposta:
+"${input.customInstructions.trim()}"
+</instrucoes_do_usuario>\n`
+    : "";
+
   const user = `## Metadados da proposta
 Título da proposta: ${input.title}
 Data de emissão: ${today}
 
 ## Tom de escrita
 ${TONE_GUIDE[input.tone]}
-
+${customInstructionsBlock}
 ## Seções obrigatórias (nesta ordem exata, como H2 "##")
 ${sectionList}
 

@@ -55,6 +55,7 @@ export async function POST(req: Request) {
     clientName: input.clientName,
     brief: input.brief,
     tone: input.tone,
+    customInstructions: input.customInstructions ?? "",
     sections: input.sections,
     suggestMarketPricing: input.suggestMarketPricing ?? false,
     fastCloseEnabled: input.fastCloseEnabled ?? false,

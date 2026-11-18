@@ -35,6 +35,7 @@ export const generateSchema = z.object({
     .min(40, "O brief precisa ter ao menos 40 caracteres")
     .max(15000, "O brief pode ter no máximo 15.000 caracteres"),
   tone: toneSchema,
+  customInstructions: z.string().trim().max(1000).optional().default(""),
   sections: z.array(sectionSchema).min(1, "Selecione ao menos uma seção"),
   company: companySchema,
   saveAsDefault: z.boolean().optional().default(false),

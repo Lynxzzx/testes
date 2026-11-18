@@ -68,6 +68,25 @@ const BONUS_SUGGESTIONS = [
   "Isenção da taxa de setup + 5% de desconto na primeira parcela",
 ];
 
+const CUSTOM_INSTRUCTION_CHIPS = [
+  {
+    label: "+ Sem jargões técnicos",
+    text: "Evite jargões técnicos difíceis e explique as soluções em linguagem simples e acessível para decisores não-técnicos.",
+  },
+  {
+    label: "+ Foco em ROI e vendas",
+    text: "Dê bastante destaque para o retorno sobre o investimento (ROI), ganho de receita e impacto direto nas vendas do cliente.",
+  },
+  {
+    label: "+ Tom mais próximo e humano",
+    text: "Escreva de forma mais próxima, humana e empática, demonstrando parceria genuína com o momento do cliente.",
+  },
+  {
+    label: "+ Destacar urgência",
+    text: "Reforce de forma elegante o custo de adiar a solução e a importância de iniciar o projeto agora para não perder oportunidades.",
+  },
+];
+
 type Phase = "form" | "streaming";
 
 export function NewProposalForm({
@@ -84,6 +103,7 @@ export function NewProposalForm({
   const [clientName, setClientName] = useState("");
   const [brief, setBrief] = useState("");
   const [tone, setTone] = useState<Tone>(defaultTone);
+  const [customInstructions, setCustomInstructions] = useState("");
   const [sections, setSections] = useState<SectionKey[]>(DEFAULT_SECTIONS);
   const [company, setCompany] = useState<CompanyValues>(defaultCompany);
   const [editCompany, setEditCompany] = useState(!defaultCompany.name);
@@ -147,6 +167,14 @@ export function NewProposalForm({
         : (Object.keys(SECTIONS) as SectionKey[]).filter((k) => k === key || prev.includes(k))
     );
 
+  function addInstructionChip(chipText: string) {
+    setCustomInstructions((prev) => {
+      const trimmed = prev.trim();
+      if (trimmed.includes(chipText)) return prev;
+      return trimmed ? `${trimmed} ${chipText}` : chipText;
+    });
+  }
+
   async function generate(e: React.FormEvent) {
     e.preventDefault();
     if (brief.trim().length < 40) return toast.error("O brief precisa ter ao menos 40 caracteres.");
@@ -168,6 +196,7 @@ export function NewProposalForm({
           clientName,
           brief,
           tone,
+          customInstructions,
           sections:
             fastCloseEnabled && !sections.includes("termos")
               ? [...sections, "termos"]
@@ -461,6 +490,41 @@ export function NewProposalForm({
         <h2 className="font-semibold">Tom da proposta</h2>
         <div className="mt-4">
           <TonePicker value={tone} onChange={setTone} />
+        </div>
+
+        <div className="mt-5 space-y-2 border-t pt-5">
+          <Label htmlFor="custom-instructions">
+            Instruções personalizadas para a IA (opcional)
+          </Label>
+          <Textarea
+            id="custom-instructions"
+            rows={2}
+            maxLength={1000}
+            value={customInstructions}
+            onChange={(e) => setCustomInstructions(e.target.value)}
+            placeholder="Ex.: Escreva de forma mais informal e próxima, sem termos técnicos difíceis, e dê bastante destaque para o retorno sobre investimento."
+            className="min-h-16 resize-y text-sm"
+          />
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {CUSTOM_INSTRUCTION_CHIPS.map((chip) => {
+              const active = customInstructions.includes(chip.text);
+              return (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => addInstructionChip(chip.text)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                    active
+                      ? "border-brand/40 bg-brand/10 text-brand"
+                      : "bg-muted/40 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <h2 className="mt-8 font-semibold">Seções</h2>
