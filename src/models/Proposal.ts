@@ -33,6 +33,25 @@ const ProposalSchema = new Schema(
     },
 
     content: { type: String, default: "" }, // Markdown
+    // Análise privada de riscos e oportunidades (visível apenas para o autor no dashboard)
+    riskRadar: {
+      type: [
+        new Schema(
+          {
+            type: {
+              type: String,
+              enum: ["warning", "opportunity"],
+              default: "warning",
+            },
+            title: { type: String, default: "" },
+            description: { type: String, default: "" },
+            clause: { type: String, default: "" },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
     status: {
       type: String,
       enum: ["generating", "draft", "sent", "approved", "rejected", "final", "error"],

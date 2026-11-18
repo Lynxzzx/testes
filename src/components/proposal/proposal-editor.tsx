@@ -24,10 +24,12 @@ import {
 import { toast } from "sonner";
 import { StatusSelect, type ProposalStatus } from "@/components/dashboard/status-badge";
 import { Markdown } from "@/components/markdown";
+import { RiskRadarCard } from "@/components/proposal/risk-radar-card";
 import { SectionEditor } from "@/components/proposal/section-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { RiskRadarItem } from "@/lib/ai/prompts";
 import { extractProposalTotalBrl, formatBrl } from "@/lib/proposal-charts";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -35,7 +37,9 @@ type ProposalData = {
   id: string;
   title: string;
   clientName: string;
+  brief?: string;
   content: string;
+  riskRadar?: RiskRadarItem[];
   status: ProposalStatus;
   tone: string;
   aiModel: string;
@@ -411,6 +415,20 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
             <Link href="/dashboard/propostas/nova">Gerar novamente</Link>
           </Button>
         </div>
+      )}
+
+      {/* Radar Privado de Riscos e Oportunidades (visível apenas no painel do autor) */}
+      {status !== "generating" && content && (
+        <RiskRadarCard
+          items={initial.riskRadar}
+          brief={initial.brief}
+          content={content}
+          disabled={status === "generating"}
+          onInsertClause={(nextMd) => {
+            setContent(nextMd);
+            setDirty(true);
+          }}
+        />
       )}
 
       {/* Alternador de modos de revisão/edição */}

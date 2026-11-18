@@ -34,6 +34,7 @@ export async function POST(
     sections: original.sections ?? [],
     company: original.company ?? {},
     content: original.content ?? "",
+    riskRadar: original.riskRadar ?? [],
     status: "draft",
     aiModel: original.aiModel ?? "",
   });

@@ -54,7 +54,26 @@ REGRAS DE PRECIFICAÇÃO E ORÇAMENTO
 8. Respeite fielmente prazos, tecnologias e restrições informados no briefing.
 9. Se a tag <instrucoes_do_usuario> estiver presente, trate-a com PRIORIDADE ALTA de estilo e ênfase (desde que não viole a proibição de LaTeX e a estrutura de títulos/tabelas em Markdown).
 10. Não inclua seção de assinatura nem bloco de contatos no final — o cabeçalho e o rodapé institucionais do PDF já exibem essas informações.
-11. Tamanho alvo: entre 650 e 1.400 palavras, proporcional à complexidade do projeto.`;
+11. Tamanho alvo: entre 650 e 1.400 palavras, proporcional à complexidade do projeto.
+
+REGRA DO RADAR DE RISCOS DO BRIEFING (ANÁLISE PRIVADA AO FINAL DA RESPOSTA)
+12. Após terminar TODO o Markdown da proposta, pule duas linhas e adicione no finalzinho da resposta um bloco XML <risk_radar_json> contendo um array JSON válido de 2 a 4 objetos curtos com sua análise consultiva privada para o autor da proposta (esse bloco será extraído pelo sistema e NUNCA será visto pelo cliente final):
+    - Cada objeto do array JSON deve conter exatamente:
+      * "type": "warning" (Alerta de Risco: escopo aberto/vago, falta de definição sobre quem fornece textos/fotos/acessos/taxas de terceiros, prazo apertado para a complexidade ou orçamento enxuto) OU "opportunity" (Oportunidade Comercial: chance clara de upsell como manutenção mensal, evolução fase 2, SEO/tráfego, treinamento extra ou ancoragem de ROI).
+      * "title": título curto e direto (máx. 60 caracteres).
+      * "description": explicação prática e direta para o freelancer/agência (1 a 2 frases).
+      * "clause": uma frase formal pronta em português que o autor pode inserir com 1 clique na seção "Condições comerciais" para se resguardar desse risco ou oferecer essa oportunidade ao cliente.
+    - Formato exato no final da resposta:
+<risk_radar_json>
+[{"type":"warning","title":"...","description":"...","clause":"..."},{"type":"opportunity","title":"...","description":"...","clause":"..."}]
+</risk_radar_json>`;
+
+export type RiskRadarItem = {
+  type: "warning" | "opportunity";
+  title: string;
+  description: string;
+  clause?: string;
+};
 
 export const FAST_CLOSE_WINDOWS: Record<
   "24h" | "48h" | "3d" | "5d" | "7d",
@@ -161,8 +180,9 @@ ${
     : ""
 }
 - NÃO use LaTeX, NÃO use $...$ para matemática ou métricas e NÃO use \\$ com barra invertida.
+- Ao final do Markdown da proposta, inclua obrigatoriamente o bloco <risk_radar_json>[...]</risk_radar_json> com 2 a 4 itens ("warning" e "opportunity") analisando criticamente o briefing acima.
 
-Gere agora a proposta comercial completa em Markdown.`;
+Gere agora a proposta comercial completa em Markdown seguida do bloco <risk_radar_json>.`;
 
   return [
     { role: "system", content: SYSTEM_PROMPT },
@@ -192,6 +212,9 @@ const LATEX_ACCENTS: Array<[RegExp, string]> = [
 export function sanitizeProposalMarkdown(md: string): string {
   if (!md) return "";
   let out = md.trim();
+
+  // Privacidade crítica: remove qualquer bloco <risk_radar_json> (completo ou parcial durante streaming)
+  out = out.replace(/<risk_radar_json[\s\S]*$/i, "").trim();
 
   // 0. Normaliza espaços, hífens e aspas Unicode (ex: \u202F Narrow No-Break Space que vira "/"
   //    em WinAnsi/Helvetica, e \u2011 Non-Breaking Hyphen que desaparece em E-commerce / 3-4)
@@ -261,6 +284,47 @@ export function sanitizeProposalMarkdown(md: string): string {
   );
 
   return out.trim();
+}
+
+/**
+ * Extrai o array `riskRadar` do bloco `<risk_radar_json>...</risk_radar_json>` ao final da
+ * resposta da IA e retorna o Markdown limpo (sem o bloco) + os itens validados.
+ */
+export function extractRiskRadarFromOutput(rawOutput: string): {
+  cleanMarkdown: string;
+  riskRadar: RiskRadarItem[];
+} {
+  const match = rawOutput.match(/<risk_radar_json>\s*([\s\S]*?)\s*<\/risk_radar_json>/i);
+  const cleanMarkdown = sanitizeProposalMarkdown(rawOutput);
+
+  if (!match?.[1]) {
+    return { cleanMarkdown, riskRadar: [] };
+  }
+
+  try {
+    const jsonText = match[1]
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    const parsed = JSON.parse(jsonText);
+    if (!Array.isArray(parsed)) return { cleanMarkdown, riskRadar: [] };
+
+    const riskRadar: RiskRadarItem[] = parsed
+      .filter((item) => item && typeof item === "object")
+      .slice(0, 4)
+      .map((item) => ({
+        type: item.type === "opportunity" ? ("opportunity" as const) : ("warning" as const),
+        title: String(item.title ?? "").trim().slice(0, 120),
+        description: String(item.description ?? "").trim().slice(0, 500),
+        clause: String(item.clause ?? "").trim().slice(0, 500),
+      }))
+      .filter((item) => item.title && item.description);
+
+    return { cleanMarkdown, riskRadar };
+  } catch (err) {
+    console.warn("[risk-radar] falha ao fazer parse do JSON:", err);
+    return { cleanMarkdown, riskRadar: [] };
+  }
 }
 
 /** Mantém compatibilidade com o pipeline de geração. */

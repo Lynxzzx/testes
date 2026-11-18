@@ -4,8 +4,8 @@ import { connectDB } from "@/lib/db";
 import { AIError, streamChatWithFallback } from "@/lib/ai/openrouter";
 import {
   buildProposalMessages,
-  cleanModelOutput,
   computeFastCloseDeadline,
+  extractRiskRadarFromOutput,
 } from "@/lib/ai/prompts";
 import { consumeCredit, refundCredit } from "@/lib/usage";
 import { generateSchema } from "@/lib/validations";
@@ -109,23 +109,25 @@ export async function POST(req: Request) {
           // Salvamento parcial periódico (resiliência caso a função seja interrompida)
           if (Date.now() - lastSave > 5000) {
             lastSave = Date.now();
-            Proposal.updateOne({ _id: proposal._id }, { content }).catch(() => {});
+            const partialClean = extractRiskRadarFromOutput(content).cleanMarkdown;
+            Proposal.updateOne({ _id: proposal._id }, { content: partialClean }).catch(() => {});
           }
         }
-        const finalContent = cleanModelOutput(content);
+        const { cleanMarkdown: finalContent, riskRadar } = extractRiskRadarFromOutput(content);
         if (finalContent.length < 100) throw new AIError("A IA retornou uma resposta muito curta.");
         await Proposal.updateOne(
           { _id: proposal._id },
-          { content: finalContent, status: "draft", aiModel: model, error: "" }
+          { content: finalContent, riskRadar, status: "draft", aiModel: model, error: "" }
         );
       } catch (err) {
         console.error("[generate] erro durante o stream", err);
         const message = err instanceof Error ? err.message : "Falha durante a geração";
         if (content.length > 300) {
           // Conteúdo parcial aproveitável: mantém como rascunho para edição
+          const { cleanMarkdown, riskRadar } = extractRiskRadarFromOutput(content);
           await Proposal.updateOne(
             { _id: proposal._id },
-            { content: cleanModelOutput(content), status: "draft", aiModel: model, error: message }
+            { content: cleanMarkdown, riskRadar, status: "draft", aiModel: model, error: message }
           );
         } else {
           await refundCredit(userId);
