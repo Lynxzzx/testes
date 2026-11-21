@@ -27,10 +27,10 @@ export function SupportWidget({ userEmail }: { userEmail?: string }) {
 
   const whatsHref = SUPPORT_WHATSAPP
     ? `https://wa.me/${SUPPORT_WHATSAPP.replace(/\D/g, "")}?text=${encodeURIComponent(
-        `Olá! Preciso de ajuda no PropostaAI${userEmail ? ` (${userEmail})` : ""}.`
+        `Olá! Preciso de ajuda no Propoz${userEmail ? ` (${userEmail})` : ""}.`
       )}`
     : `https://wa.me/?text=${encodeURIComponent(
-        `Olá! Preciso de suporte no PropostaAI${userEmail ? ` (${userEmail})` : ""}.`
+        `Olá! Preciso de suporte no Propoz${userEmail ? ` (${userEmail})` : ""}.`
       )}`;
 
   return (

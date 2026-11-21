@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
+import { Activity } from "@/models/Activity";
+import { Client } from "@/models/Client";
 import { Proposal } from "@/models/Proposal";
 
 const approveSchema = z.object({
@@ -56,6 +58,8 @@ export async function POST(
 
   const now = new Date();
   proposal.status = "approved";
+  proposal.crmStage = "won";
+  proposal.temperature = "hot";
   proposal.approvedAt = now;
   proposal.approvedByName = signerName;
   if (email) proposal.approvedByEmail = email;
@@ -67,6 +71,20 @@ export async function POST(
   proposal.signerIp = signerIp;
 
   await proposal.save();
+
+  await Promise.all([
+    proposal.clientId
+      ? Client.updateOne({ _id: proposal.clientId }, { $set: { temperature: "hot" } })
+      : Promise.resolve(),
+    Activity.create({
+      user: proposal.user,
+      ...(proposal.clientId ? { client: proposal.clientId } : {}),
+      proposal: proposal._id,
+      type: "proposal_approved",
+      title: "Proposta aprovada e assinada digitalmente!",
+      description: `Assinada por ${signerName} (Doc: ${signerDocument}) · IP: ${signerIp}`,
+    }),
+  ]).catch(() => {});
 
   return NextResponse.json({
     ok: true,

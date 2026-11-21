@@ -23,8 +23,8 @@ export function Hero() {
             <span className="bg-gradient-to-r from-brand to-violet-500 bg-clip-text text-transparent">2 minutos</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-muted-foreground">
-            Cole o brief do cliente e os dados da sua empresa. A PropostaAI escreve uma proposta completa, com escopo,
-            cronograma e investimento — pronta para enviar e fechar negócio.
+            Cole o brief do cliente e os dados da sua empresa. A Propoz escreve uma proposta completa, com escopo,
+            cronograma, investimento, link interativo com assinatura digital e CRM integrado.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg" variant="brand" className="w-full sm:w-auto">
@@ -60,7 +60,7 @@ function HeroDemo() {
           <span className="size-2.5 rounded-full bg-red-400/70" />
           <span className="size-2.5 rounded-full bg-amber-400/70" />
           <span className="size-2.5 rounded-full bg-emerald-400/70" />
-          <span className="ml-3 text-xs text-muted-foreground">propostaai.com.br/dashboard/propostas/nova</span>
+          <span className="ml-3 text-xs text-muted-foreground">usepropoz.com.br/dashboard/propostas/nova</span>
         </div>
         <div className="grid gap-2 p-2 md:grid-cols-2">
           {/* Entrada */}

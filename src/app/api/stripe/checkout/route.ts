@@ -11,8 +11,8 @@ const DEFAULT_SUBSCRIPTION_ITEM: Stripe.Checkout.SessionCreateParams.LineItem = 
   price_data: {
     currency: "brl",
     product_data: {
-      name: "PropostaAI Pro",
-      description: "Propostas comerciais ilimitadas com IA e PDF sem marca d'água",
+      name: "Propoz Pro",
+      description: "Propostas comerciais ilimitadas com IA, CRM completo e PDF sem marca d'água",
     },
     unit_amount: 3900, // R$ 39,00
     recurring: { interval: "month" },
@@ -24,8 +24,8 @@ const DEFAULT_PIX_ITEM: Stripe.Checkout.SessionCreateParams.LineItem = {
   price_data: {
     currency: "brl",
     product_data: {
-      name: "PropostaAI Pro — 30 dias (Pix / Cartão)",
-      description: "30 dias de acesso ao Plano Pro: propostas ilimitadas e PDF sem marca d'água",
+      name: "Propoz Pro — 30 dias (Pix / Cartão)",
+      description: "30 dias de acesso ao Plano Pro: propostas ilimitadas, CRM e PDF sem marca d'água",
     },
     unit_amount: 3900, // R$ 39,00
   },

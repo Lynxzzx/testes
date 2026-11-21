@@ -90,17 +90,19 @@ const CUSTOM_INSTRUCTION_CHIPS = [
 type Phase = "form" | "streaming";
 
 export function NewProposalForm({
+  defaultClientName = "",
   defaultCompany,
   defaultTone,
   usage,
 }: {
+  defaultClientName?: string;
   defaultCompany: CompanyValues;
   defaultTone: Tone;
   usage: { plan: "free" | "pro"; remaining: number | null; canGenerate: boolean };
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [clientName, setClientName] = useState("");
+  const [clientName, setClientName] = useState(defaultClientName);
   const [brief, setBrief] = useState("");
   const [tone, setTone] = useState<Tone>(defaultTone);
   const [customInstructions, setCustomInstructions] = useState("");

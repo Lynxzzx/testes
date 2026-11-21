@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, FileText, Plus, Settings } from "lucide-react";
+import { CreditCard, FileText, Kanban, Plus, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const NAV = [
   { href: "/dashboard", label: "Propostas", icon: FileText, exact: true },
+  { href: "/dashboard/crm", label: "CRM & Funil", icon: Kanban },
   { href: "/dashboard/propostas/nova", label: "Nova proposta", icon: Plus },
   { href: "/dashboard/configuracoes", label: "Configurações", icon: Settings },
   { href: "/dashboard/plano", label: "Plano e cobrança", icon: CreditCard },

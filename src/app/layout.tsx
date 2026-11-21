@@ -20,14 +20,14 @@ function safeMetadataBase(): URL {
 export const metadata: Metadata = {
   metadataBase: safeMetadataBase(),
   title: {
-    default: "PropostaAI — Propostas comerciais profissionais em minutos",
-    template: "%s · PropostaAI",
+    default: "Propoz — Propostas comerciais e CRM inteligente com IA",
+    template: "%s · Propoz",
   },
   description:
-    "Cole o brief do cliente e os dados da sua empresa. A PropostaAI gera uma proposta comercial completa, persuasiva e pronta em PDF.",
+    "Transforme briefings em propostas comerciais persuasivas em PDF e no link interativo, com assinatura digital e CRM de vendas integrado. usepropoz.com.br",
   openGraph: {
-    title: "PropostaAI",
-    description: "Do brief ao PDF em menos de 2 minutos.",
+    title: "Propoz • usepropoz.com.br",
+    description: "Do briefing ao fechamento comercial em minutos.",
     locale: "pt_BR",
     type: "website",
   },

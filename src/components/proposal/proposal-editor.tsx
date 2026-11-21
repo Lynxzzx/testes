@@ -240,13 +240,13 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
   }
 
   async function handleCopyPublicLink() {
-    if (dirty) {
-      await saveChanges(undefined, true);
+    if (dirty || status === "draft") {
+      await saveChanges(status === "draft" ? "sent" : undefined, true);
     }
     const url = `${window.location.origin}/p/${initial.id}`;
     await navigator.clipboard.writeText(url);
     setCopiedLink(true);
-    toast.success("Link interativo copiado! Envie para o seu cliente.");
+    toast.success("Link interativo copiado e negócio movido para 'Enviada' no CRM!");
     setTimeout(() => setCopiedLink(false), 2500);
   }
 
@@ -573,7 +573,7 @@ export function ProposalEditor({ initial }: { initial: ProposalData }) {
             <div className="flex items-center justify-between border-t bg-slate-50/60 px-6 py-4 text-xs text-slate-500 sm:px-12">
               <span>
                 {contactLine || c?.name || ""}
-                {initial.watermark ? " · Gerado com PropostaAI" : ""}
+                {initial.watermark ? " · Gerado via Propoz • usepropoz.com.br" : ""}
               </span>
               <span>PDF A4</span>
             </div>

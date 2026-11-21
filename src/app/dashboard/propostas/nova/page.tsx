@@ -8,7 +8,12 @@ import { getUsage } from "@/lib/usage";
 
 export const metadata: Metadata = { title: "Nova proposta" };
 
-export default async function NewProposalPage() {
+export default async function NewProposalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ clientName?: string }>;
+}) {
+  const { clientName = "" } = await searchParams;
   const user = await getCurrentUser();
   const usage = getUsage(user);
 
@@ -19,6 +24,7 @@ export default async function NewProposalPage() {
         description="Cole o brief, revise os dados da sua empresa e deixe a IA escrever a proposta."
       />
       <NewProposalForm
+        defaultClientName={clientName}
         defaultCompany={toCompanyValues(user.company)}
         defaultTone={(user.preferences?.tone as Tone) ?? "consultivo"}
         usage={{ plan: usage.plan, remaining: usage.remaining, canGenerate: usage.canGenerate }}

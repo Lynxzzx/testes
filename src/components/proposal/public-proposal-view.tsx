@@ -189,7 +189,7 @@ export function PublicProposalView({ proposal }: { proposal: PublicProposalProps
             <span>{contactLine || c?.name || ""}</span>
             {proposal.watermark && (
               <span className="inline-flex items-center gap-1 text-slate-400">
-                <Sparkles className="size-3" /> Gerado com PropostaAI
+                <Sparkles className="size-3" /> Gerado via Propoz • usepropoz.com.br
               </span>
             )}
           </div>

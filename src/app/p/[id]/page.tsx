@@ -5,6 +5,8 @@ import { PublicProposalView } from "@/components/proposal/public-proposal-view";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { getPlan } from "@/lib/usage";
+import { Activity } from "@/models/Activity";
+import { Client } from "@/models/Client";
 import { Proposal } from "@/models/Proposal";
 import { User } from "@/models/User";
 
@@ -48,13 +50,35 @@ export default async function PublicProposalPage({
 
   // Registra visualização quando aberta pelo cliente (não pelo próprio autor logado)
   if (!isOwner) {
-    await Proposal.updateOne(
-      { _id: proposal._id },
-      {
-        $inc: { viewCount: 1 },
-        $set: { lastViewedAt: new Date() },
-      }
-    ).catch(() => {});
+    const now = new Date();
+    const shouldPromoteToSent =
+      !proposal.crmStage || proposal.crmStage === "lead" || proposal.crmStage === "created";
+
+    await Promise.all([
+      Proposal.updateOne(
+        { _id: proposal._id },
+        {
+          $inc: { viewCount: 1 },
+          $set: {
+            lastViewedAt: now,
+            temperature: "hot",
+            ...(shouldPromoteToSent ? { crmStage: "sent" } : {}),
+            ...(proposal.status === "draft" ? { status: "sent", sentAt: proposal.sentAt || now } : {}),
+          },
+        }
+      ),
+      proposal.clientId
+        ? Client.updateOne({ _id: proposal.clientId }, { $set: { temperature: "hot" } })
+        : Promise.resolve(),
+      Activity.create({
+        user: proposal.user,
+        ...(proposal.clientId ? { client: proposal.clientId } : {}),
+        proposal: proposal._id,
+        type: "proposal_viewed",
+        title: "Cliente visualizou a proposta no link interativo",
+        description: `${proposal.title}${proposal.clientName ? ` (${proposal.clientName})` : ""}`,
+      }),
+    ]).catch(() => {});
   }
 
   const owner = await User.findById(proposal.user).lean();

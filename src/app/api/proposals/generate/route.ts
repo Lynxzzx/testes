@@ -8,7 +8,10 @@ import {
   extractRiskRadarFromOutput,
 } from "@/lib/ai/prompts";
 import { consumeCredit, refundCredit } from "@/lib/usage";
+import { extractProposalTotalBrl } from "@/lib/proposal-charts";
 import { generateSchema } from "@/lib/validations";
+import { Activity } from "@/models/Activity";
+import { Client } from "@/models/Client";
 import { Proposal } from "@/models/Proposal";
 import { User } from "@/models/User";
 
@@ -49,8 +52,37 @@ export async function POST(req: Request) {
     await User.updateOne({ _id: userId }, { $set: set });
   }
 
+  // Vincula ou cria automaticamente o cliente na base do CRM
+  let linkedClientId: unknown = undefined;
+  const trimmedClientName = (input.clientName ?? "").trim();
+  if (trimmedClientName) {
+    const escaped = trimmedClientName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const existingClient = await Client.findOne({
+      user: userId,
+      $or: [
+        { name: new RegExp(`^${escaped}$`, "i") },
+        { company: new RegExp(`^${escaped}$`, "i") },
+      ],
+    })
+      .select("_id")
+      .lean();
+
+    if (existingClient) {
+      linkedClientId = existingClient._id;
+    } else {
+      const createdClient = await Client.create({
+        user: userId,
+        name: trimmedClientName,
+        company: trimmedClientName,
+        temperature: "warm",
+      });
+      linkedClientId = createdClient._id;
+    }
+  }
+
   const proposal = await Proposal.create({
     user: userId,
+    ...(linkedClientId ? { clientId: linkedClientId } : {}),
     title: input.title,
     clientName: input.clientName,
     brief: input.brief,
@@ -58,6 +90,8 @@ export async function POST(req: Request) {
     customInstructions: input.customInstructions ?? "",
     sections: input.sections,
     suggestMarketPricing: input.suggestMarketPricing ?? false,
+    crmStage: "created",
+    temperature: "warm",
     fastCloseEnabled: input.fastCloseEnabled ?? false,
     fastCloseWindow: input.fastCloseEnabled ? input.fastCloseWindow : "",
     fastCloseDeadline: input.fastCloseEnabled
@@ -115,10 +149,27 @@ export async function POST(req: Request) {
         }
         const { cleanMarkdown: finalContent, riskRadar } = extractRiskRadarFromOutput(content);
         if (finalContent.length < 100) throw new AIError("A IA retornou uma resposta muito curta.");
+        const dealValue = extractProposalTotalBrl(finalContent);
         await Proposal.updateOne(
           { _id: proposal._id },
-          { content: finalContent, riskRadar, status: "draft", aiModel: model, error: "" }
+          {
+            content: finalContent,
+            riskRadar,
+            dealValue,
+            status: "draft",
+            crmStage: "created",
+            aiModel: model,
+            error: "",
+          }
         );
+        Activity.create({
+          user: userId,
+          ...(linkedClientId ? { client: linkedClientId } : {}),
+          proposal: proposal._id,
+          type: "proposal_created",
+          title: "Proposta comercial gerada com IA",
+          description: `${input.title}${trimmedClientName ? ` · Cliente: ${trimmedClientName}` : ""}`,
+        }).catch(() => {});
       } catch (err) {
         console.error("[generate] erro durante o stream", err);
         const message = err instanceof Error ? err.message : "Falha durante a geração";

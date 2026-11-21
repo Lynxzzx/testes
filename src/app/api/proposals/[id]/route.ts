@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
+import { extractProposalTotalBrl } from "@/lib/proposal-charts";
 import { updateProposalSchema } from "@/lib/validations";
+import { Activity } from "@/models/Activity";
 import { Proposal } from "@/models/Proposal";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -46,8 +48,53 @@ export async function PATCH(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "A proposta ainda está sendo gerada." }, { status: 409 });
   }
 
+  const prevStatus = proposal.status;
   Object.assign(proposal, parsed.data);
+
+  if (parsed.data.content !== undefined) {
+    const computedVal = extractProposalTotalBrl(parsed.data.content);
+    if (computedVal > 0) proposal.dealValue = computedVal;
+  }
+
+  if (parsed.data.status && parsed.data.status !== prevStatus) {
+    if (parsed.data.status === "sent") {
+      if (!proposal.crmStage || proposal.crmStage === "lead" || proposal.crmStage === "created") {
+        proposal.crmStage = "sent";
+      }
+      if (!proposal.sentAt) proposal.sentAt = new Date();
+    } else if (parsed.data.status === "approved" || parsed.data.status === "final") {
+      proposal.crmStage = "won";
+      if (!proposal.approvedAt) proposal.approvedAt = new Date();
+    } else if (parsed.data.status === "rejected") {
+      proposal.crmStage = "lost";
+    } else if (parsed.data.status === "draft") {
+      proposal.crmStage = "created";
+    }
+  }
+
   await proposal.save();
+
+  if (parsed.data.status && parsed.data.status !== prevStatus) {
+    const statusLabels: Record<string, string> = {
+      draft: "Rascunho",
+      sent: "Enviada / Aguardando",
+      approved: "Fechado (Ganho)",
+      final: "Fechado (Ganho)",
+      rejected: "Perdido",
+    };
+    Activity.create({
+      user: session.user.id,
+      ...(proposal.clientId ? { client: proposal.clientId } : {}),
+      proposal: proposal._id,
+      type: parsed.data.status === "sent" ? "link_sent" : "stage_changed",
+      title:
+        parsed.data.status === "sent"
+          ? "Proposta marcada como Enviada ao cliente"
+          : `Status alterado para ${statusLabels[parsed.data.status] ?? parsed.data.status}`,
+      description: proposal.title,
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ ok: true, updatedAt: proposal.updatedAt });
 }
 

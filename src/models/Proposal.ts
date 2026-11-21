@@ -3,6 +3,7 @@ import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 const ProposalSchema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    clientId: { type: Schema.Types.ObjectId, ref: "Client", index: true },
     title: { type: String, required: true, trim: true, maxlength: 160 },
     clientName: { type: String, default: "", trim: true },
     brief: { type: String, required: true },
@@ -10,6 +11,24 @@ const ProposalSchema = new Schema(
     customInstructions: { type: String, default: "" },
     sections: { type: [String], default: [] },
     suggestMarketPricing: { type: Boolean, default: false },
+
+    // Campos de CRM e Funil de Vendas
+    crmStage: {
+      type: String,
+      enum: ["lead", "created", "sent", "negotiation", "won", "lost"],
+      default: "created",
+    },
+    dealValue: { type: Number, default: 0 },
+    temperature: {
+      type: String,
+      enum: ["cold", "warm", "hot"],
+      default: "warm",
+    },
+    lostReason: { type: String, default: "" },
+    lostNotes: { type: String, default: "" },
+    nextFollowUpAt: { type: Date },
+    nextFollowUpTask: { type: String, default: "" },
+    sentAt: { type: Date },
 
     // Condição especial / bônus por fechamento rápido
     fastCloseEnabled: { type: Boolean, default: false },

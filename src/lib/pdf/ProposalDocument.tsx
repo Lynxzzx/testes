@@ -824,9 +824,9 @@ export function ProposalDocument({
   return (
     <Document
       title={sanitize(title)}
-      author={sanitize(company.name || "PropostaAI")}
-      creator="PropostaAI"
-      producer="PropostaAI"
+      author={sanitize(company.name || "Propoz")}
+      creator="Propoz (usepropoz.com.br)"
+      producer="Propoz (usepropoz.com.br)"
     >
       <Page size="A4" style={s.page}>
         {/* Cabeçalho institucional fixo em fluxo normal */}
@@ -855,7 +855,7 @@ export function ProposalDocument({
 
         {watermark ? (
           <Text style={s.watermark} fixed>
-            PropostaAI
+            Propoz
           </Text>
         ) : null}
 
@@ -989,7 +989,7 @@ export function ProposalDocument({
         <View style={s.footer} fixed>
           <Text style={{ flex: 1 }}>
             {sanitize(contactLine || company.name || "")}
-            {watermark ? "   ·   Gerado com PropostaAI" : ""}
+            {watermark ? "   ·   Gerado via Propoz • usepropoz.com.br" : ""}
           </Text>
           <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>

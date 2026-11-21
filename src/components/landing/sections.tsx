@@ -101,7 +101,7 @@ export function HowItWorks() {
               </span>
             </div>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Comparativo real entre redigir do zero no Word/Docs e gerar na PropostaAI.
+              Comparativo real entre redigir do zero no Word/Docs e gerar na Propoz.
             </p>
 
             <div className="mt-6 space-y-5">
@@ -126,7 +126,7 @@ export function HowItWorks() {
 
               <div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-brand">Com PropostaAI (Brief → PDF pronto)</span>
+                  <span className="font-semibold text-brand">Com Propoz (Brief → PDF + Link pronto)</span>
                   <span className="font-mono font-semibold text-brand">2 min</span>
                 </div>
                 <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-brand/10">
@@ -157,7 +157,7 @@ export function HowItWorks() {
 
             <div className="mt-6 grid grid-cols-4 items-end gap-3 pt-4" style={{ height: 148 }}>
               {[
-                { label: "Em até 1h", sub: "Com PropostaAI", value: 68, highlight: true },
+                { label: "Em até 1h", sub: "Com Propoz", value: 68, highlight: true },
                 { label: "Mesmo dia", sub: "Até 8h depois", value: 49, highlight: false },
                 { label: "24h a 48h", sub: "Média do mercado", value: 28, highlight: false },
                 { label: "+3 dias", sub: "Lead esfriou", value: 14, highlight: false },
@@ -329,7 +329,7 @@ export function Pricing() {
         <SectionHeading
           eyebrow="Preços"
           title="Uma proposta fechada já paga o ano inteiro"
-          description="Comece grátis. Faça upgrade quando a PropostaAI virar parte do seu processo comercial."
+          description="Comece grátis. Faça upgrade quando a Propoz virar o coração do seu processo comercial."
         />
         <div className="mt-14">
           <PricingCards />
@@ -409,7 +409,7 @@ export function SiteFooter() {
     <footer className="border-t">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-10 text-sm text-muted-foreground sm:flex-row sm:px-6">
         <Logo />
-        <p>© {new Date().getFullYear()} PropostaAI. Feito no Brasil.</p>
+        <p>© {new Date().getFullYear()} Propoz · usepropoz.com.br</p>
         <div className="flex gap-5">
           <a href="#precos" className="hover:text-foreground">
             Preços
