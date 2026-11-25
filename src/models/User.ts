@@ -28,6 +28,7 @@ const UserSchema = new Schema(
     provider: { type: String, enum: ["credentials", "google"], default: "credentials" },
 
     onboarded: { type: Boolean, default: false },
+    isAdmin: { type: Boolean, default: false },
 
     plan: { type: String, enum: ["free", "pro"], default: "free" },
     stripeCustomerId: { type: String, index: true },
